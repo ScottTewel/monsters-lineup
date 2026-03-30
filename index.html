@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🥎 ELL Coast Monsters — Lineup Manager</title>
+<meta name="theme-color" content="#1a1a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Monsters Lineup">
+<link rel="manifest" href="manifest.json">
+<style>
+:root {
+  --navy:#1a1a1a; --navy-l:#2d2d2d;
+  --gold:#ec4899; --gold-l:#f9a8d4;
+  --bg:#f0f4f8; --card:#fff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb;
+  --ideal:#16a34a; --ideal-bg:#dcfce7;
+  --good:#65a30d;  --good-bg:#ecfccb;
+  --ok:#d97706;    --ok-bg:#fef3c7;
+  --poor:#dc2626;  --poor-bg:#fee2e2;
+  --avoid:#991b1b; --avoid-bg:#fecaca;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+header{background:var(--navy);color:#fff;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.hd-brand{display:flex;align-items:center;gap:10px}
+.hd-brand h1{font-size:1.15rem;font-weight:800;color:var(--gold);line-height:1.1}
+.hd-brand small{display:block;font-size:.7rem;opacity:.7;font-weight:400}
+nav{display:flex;gap:3px}
+nav button{background:transparent;border:2px solid transparent;color:rgba(255,255,255,.65);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .15s}
+nav button:hover{color:#fff;background:rgba(255,255,255,.12)}
+nav button.active{color:var(--navy);background:var(--gold);border-color:var(--gold)}
+
+.tab{display:none}.tab.active{display:block}
+
+.ll{display:grid;grid-template-columns:290px 1fr;gap:14px;padding:14px;min-height:calc(100vh - 54px);align-items:start}
+.sidebar{display:flex;flex-direction:column;gap:12px}
+
+.card{background:var(--card);border-radius:var(--radius);padding:14px;box-shadow:0 1px 5px rgba(0,0,0,.08);border:1px solid var(--border)}
+.card-h{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px}
+
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:.83rem;font-weight:600;transition:all .15s}
+.btn-primary{background:var(--navy);color:#fff}.btn-primary:hover{background:var(--navy-l)}
+.btn-gold{background:var(--gold);color:var(--navy)}.btn-gold:hover{background:var(--gold-l)}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--navy);color:var(--navy)}
+.btn-danger{background:#fee2e2;color:#dc2626;border:none}.btn-danger:hover{background:#fecaca}
+.btn-purple{background:#ede9fe;color:#5b21b6;border:none}.btn-purple:hover{background:#ddd6fe}
+.btn-teal{background:#ccfbf1;color:#0f766e;border:none}.btn-teal:hover{background:#99f6e4}
+.btn-sm{padding:4px 10px;font-size:.77rem}
+.w-full{width:100%}
+
+.game-list{display:flex;flex-direction:column;gap:5px}
+.game-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;cursor:pointer;border:1.5px solid transparent;transition:all .12s}
+.game-item:hover{background:var(--bg)}.game-item.sel{border-color:var(--navy);background:#eff6ff}
+.game-item-opp{font-size:.85rem;font-weight:700}
+.game-item-sub{font-size:.7rem;color:var(--muted)}
+
+.fg{margin-bottom:10px}
+.fg label{display:block;font-size:.75rem;font-weight:600;color:var(--muted);margin-bottom:3px}
+.fg input,.fg select{width:100%;padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:.85rem;background:#fff;transition:border-color .15s}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--navy)}
+
+/* ── AVAILABILITY GRID ── */
+.av-wrap{overflow-x:auto;margin-top:2px}
+.av-table{border-collapse:collapse;width:100%}
+.av-table th{font-size:.62rem;font-weight:700;color:var(--muted);text-align:center;padding:2px 3px;white-space:nowrap}
+.av-table th.av-inn-h{width:24px}
+.av-table td{padding:2px 1px;vertical-align:middle}
+.av-name-cell{font-size:.74rem;font-weight:600;padding-right:4px;white-space:nowrap;max-width:72px;overflow:hidden;text-overflow:ellipsis}
+.av-name-cell.fully-out{opacity:.38;text-decoration:line-through}
+.av-btn{display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:5px;border:1.5px solid transparent;cursor:pointer;font-size:.65rem;font-weight:800;transition:all .12s;line-height:1}
+.av-btn.av-yes{background:#dcfce7;color:#166534;border-color:#86efac}
+.av-btn.av-no{background:#f3f4f6;color:#9ca3af;border-color:#d1d5db}
+.av-btn:hover{transform:scale(1.1)}
+.av-all-btn{font-size:.6rem;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:white;cursor:pointer;color:var(--muted);white-space:nowrap}
+.av-all-btn:hover{border-color:var(--navy);color:var(--navy)}
+.av-legend{font-size:.62rem;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.av-dot-yes{display:inline-block;width:8px;height:8px;border-radius:2px;background:#dcfce7;border:1px solid #86efac}
+.av-dot-no{display:inline-block;width:8px;height:8px;border-radius:2px;background:#f3f4f6;border:1px solid #d1d5db}
+
+/* ── VALIDATION ── */
+.val-item{display:flex;align-items:flex-start;gap:7px;padding:5px 0;font-size:.78rem;border-bottom:1px solid var(--border);line-height:1.4}
+.val-item:last-child{border-bottom:none}
+.val-ok{color:#166534}.val-warn{color:#92400e}.val-err{color:#991b1b}
+.val-ok::before{content:'✅ '}.val-warn::before{content:'⚠️ '}.val-err::before{content:'❌ '}
+
+.main-content{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+/* ── BATTING ORDER ── */
+.bat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:5px}
+.bat-slot{display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--bg);border-radius:7px;border:1.5px solid var(--border);cursor:grab;user-select:none;transition:all .12s}
+.bat-slot.partial-slot{border-style:dashed;background:#fff8f0}
+.bat-slot.absent-slot{opacity:.3;cursor:default;border-style:dashed}
+.bat-slot:not(.absent-slot):not(.partial-slot):active{cursor:grabbing;opacity:.6}
+.bat-slot.dg-over{border-color:var(--navy);background:#dbeafe}
+.bat-slot.dragging{opacity:.35}
+.bat-num{font-size:.7rem;font-weight:800;color:var(--muted);width:18px;text-align:right;flex-shrink:0}
+.bat-name{font-size:.83rem;font-weight:600}
+
+/* ── GRID ── */
+.grid-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table.ig{border-collapse:collapse;width:100%;min-width:860px}
+table.ig th{background:var(--navy);color:#fff;padding:7px 8px;text-align:center;font-size:.72rem;font-weight:700;white-space:nowrap}
+table.ig th:first-child{width:52px;border-radius:var(--radius) 0 0 0}
+table.ig th.bench-h{background:#4b5563;border-radius:0 var(--radius) 0 0}
+table.ig td{padding:3px;border:1px solid var(--border);vertical-align:middle}
+table.ig tr:last-child td:first-child{border-radius:0 0 0 var(--radius)}
+table.ig tr:last-child td:last-child{border-radius:0 0 var(--radius) 0}
+.inn-lbl{font-size:.8rem;font-weight:800;color:var(--navy);text-align:center;padding:4px}
+
+.pc{min-width:82px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;border:2px solid transparent;padding:3px 5px;text-align:center;transition:all .12s;flex-direction:column}
+.pc:hover{border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,26,26,.12)}
+.pc.empty{background:#f3f4f6;color:var(--muted);font-size:.72rem;font-style:italic}
+.pc.sk-ideal{background:var(--ideal-bg);color:var(--ideal)}
+.pc.sk-good{background:var(--good-bg);color:var(--good)}
+.pc.sk-ok{background:var(--ok-bg);color:var(--ok)}
+.pc.sk-poor{background:var(--poor-bg);color:var(--poor)}
+.pc.sk-avoid{background:var(--avoid-bg);color:var(--avoid)}
+.pc.pc-unavail{background:#fff0f0;color:#dc2626;border-color:#fca5a5}
+.pc-name{font-size:.76rem;font-weight:700;line-height:1.2}
+.pc-sk{font-size:.6rem;opacity:.75}
+
+.bench-td{min-width:120px;padding:4px;vertical-align:top;background:#f9fafb}
+.bench-pill{display:inline-block;font-size:.7rem;padding:2px 7px;border-radius:10px;background:#e5e7eb;color:#374151;margin:1px}
+.bench-pill.bp-warn{background:#fef3c7;color:#92400e}
+.bench-pill.bp-err{background:#fee2e2;color:#991b1b}
+.bench-pill.bp-gone{background:#fce7f3;color:#9d174d;text-decoration:line-through;opacity:.6}
+
+.pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
+.pt-row{padding:8px 10px;background:var(--bg);border-radius:8px;border:1.5px solid transparent}
+.pt-row.pt-warn{border-color:#fcd34d}.pt-row.pt-err{border-color:#fca5a5}
+.pt-name{font-size:.82rem;font-weight:700;margin-bottom:3px}
+.pt-detail{font-size:.7rem;color:var(--muted)}
+
+.pitch-bar{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.pitch-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:700;border:1.5px solid}
+.pc-ok{background:var(--ideal-bg);border-color:var(--ideal);color:var(--ideal)}
+.pc-warn{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.pc-max{background:var(--poor-bg);border-color:var(--poor);color:var(--poor)}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:20px;width:400px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.28)}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.modal-hd h3{font-size:1rem;font-weight:800;color:var(--navy)}
+.modal-x{background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px}
+.modal-x:hover{color:var(--text)}
+
+.pop-group h4{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;padding:8px 0 3px;color:var(--muted)}
+.pop-opt{display:flex;align-items:center;justify-content:space-between;padding:8px 11px;border-radius:8px;cursor:pointer;border:2px solid transparent;margin-bottom:3px;transition:all .12s}
+.pop-opt:hover{border-color:rgba(0,0,0,.2)}
+.pop-opt.cur{border-color:var(--navy)!important;box-shadow:0 0 0 1px var(--navy)}
+.pop-opt.busy{opacity:.4;pointer-events:none}
+.pop-opt.sk-ideal{background:var(--ideal-bg)}.pop-opt.sk-good{background:var(--good-bg)}
+.pop-opt.sk-ok{background:var(--ok-bg)}.pop-opt.sk-poor{background:var(--poor-bg)}.pop-opt.sk-avoid{background:var(--avoid-bg)}
+.pop-name{font-size:.88rem;font-weight:700}
+.pop-sub{font-size:.7rem;color:var(--muted);margin-top:1px}
+.sk-badge{font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:10px;text-transform:uppercase;color:#fff}
+.sk-badge.ideal{background:var(--ideal)}.sk-badge.good{background:var(--good)}
+.sk-badge.ok{background:var(--ok)}.sk-badge.poor{background:var(--poor)}.sk-badge.avoid{background:var(--avoid)}
+.clear-pos-btn{width:100%;padding:7px;background:#fee2e2;color:#dc2626;border:none;border-radius:8px;cursor:pointer;font-size:.83rem;font-weight:600;margin-top:10px}
+.clear-pos-btn:hover{background:#fecaca}
+
+.autofill-box{background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:10px 12px;font-size:.78rem;line-height:1.7;color:#1e40af;margin-bottom:8px}
+
+.roster-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;padding:14px}
+.p-card{background:#fff;border-radius:var(--radius);padding:14px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.p-card-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:11px}
+.p-card-name{font-size:1.05rem;font-weight:800;color:var(--navy)}
+.p-card-sub{font-size:.72rem;color:var(--muted)}
+.pos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:9px}
+.pos-cell-r{display:flex;flex-direction:column;align-items:center;padding:5px 3px;border-radius:6px;cursor:pointer;transition:opacity .12s}
+.pos-cell-r:hover{opacity:.75}
+.pos-cell-r.sk-ideal{background:var(--ideal-bg)}.pos-cell-r.sk-good{background:var(--good-bg)}
+.pos-cell-r.sk-ok{background:var(--ok-bg)}.pos-cell-r.sk-poor{background:var(--poor-bg)}.pos-cell-r.sk-avoid{background:var(--avoid-bg)}
+.pos-lbl{font-size:.72rem;font-weight:700;color:var(--text)}
+.pos-sk-lbl{font-size:.6rem;color:var(--muted);text-transform:capitalize}
+.p-notes{font-size:.74rem;color:var(--muted);line-height:1.45;padding-top:8px;border-top:1px solid var(--border);font-style:italic}
+.hit-rank{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--gold);color:var(--navy);font-size:.7rem;font-weight:800;margin-left:4px}
+
+.sk-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)}
+.sk-row:last-of-type{border-bottom:none}
+.sk-row-lbl{font-size:.82rem;font-weight:600;flex:1}
+.sk-opts{display:flex;gap:3px}
+.sk-opt-btn{font-size:.63rem;font-weight:800;padding:3px 6px;border-radius:7px;border:2px solid transparent;cursor:pointer;text-transform:uppercase;transition:all .12s;opacity:.28}
+.sk-opt-btn.sel{opacity:1;border-color:rgba(0,0,0,.22)}
+.sk-opt-btn.ideal{background:var(--ideal-bg);color:var(--ideal)}.sk-opt-btn.good{background:var(--good-bg);color:var(--good)}
+.sk-opt-btn.ok{background:var(--ok-bg);color:var(--ok)}.sk-opt-btn.poor{background:var(--poor-bg);color:var(--poor)}.sk-opt-btn.avoid{background:var(--avoid-bg);color:var(--avoid)}
+
+.fb-wrap{max-width:860px;margin:0 auto;padding:14px}
+.fb-player{background:#fff;border-radius:var(--radius);padding:14px;margin-bottom:10px;border:1px solid var(--border)}
+.fb-pname{font-size:.95rem;font-weight:800;color:var(--navy);margin-bottom:10px}
+.fb-sec{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px}
+.fb-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.fb-btn{padding:5px 13px;border:1.5px solid var(--border);border-radius:16px;cursor:pointer;font-size:.8rem;font-weight:600;background:#fff;transition:all .12s}
+.fb-btn:hover{border-color:var(--navy)}
+.fb-btn.ab{background:#dcfce7;border-color:#16a34a;color:#166534}
+.fb-btn.me{background:#dbeafe;border-color:#2563eb;color:#1e40af}
+.fb-btn.bl{background:#fee2e2;border-color:#dc2626;color:#991b1b}
+.fb-btn.tu{background:#dcfce7;border-color:#16a34a;color:#166534}
+.fb-btn.td{background:#fee2e2;border-color:#dc2626;color:#991b1b}
+.fb-inn-row{display:flex;align-items:center;gap:10px;padding:5px 9px;background:var(--bg);border-radius:7px;margin-bottom:3px}
+.fb-inn-lbl{font-size:.78rem;font-weight:700;width:65px;flex-shrink:0}
+.fb-inn-pos{font-size:.72rem;color:var(--muted);width:36px}
+
+/* ── NEW FEEDBACK TAB ── */
+.fb-layout{max-width:1100px;margin:0 auto;padding:14px;display:flex;flex-direction:column;gap:14px}
+.fb-log-form{display:grid;grid-template-columns:180px 1fr;gap:14px;align-items:start}
+@media(max-width:700px){.fb-log-form{grid-template-columns:1fr}}
+.fb-player-sel{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem;font-weight:600;background:#fff}
+.fb-skill-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:10px}
+@media(max-width:600px){.fb-skill-grid{grid-template-columns:repeat(3,1fr)}}
+.fb-skill-btn{padding:5px 4px;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;font-size:.72rem;font-weight:600;background:#fff;text-align:center;line-height:1.3;transition:all .12s}
+.fb-skill-btn:hover{border-color:var(--navy)}
+.fb-skill-btn.sel{background:var(--navy);color:#fff;border-color:var(--navy)}
+.fb-rating-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.fb-rating-btn{flex:1;min-width:60px;padding:7px 6px;border:2px solid var(--border);border-radius:8px;cursor:pointer;font-size:.82rem;font-weight:700;background:#fff;text-align:center;transition:all .12s}
+.fb-rating-btn:hover{transform:scale(1.03)}
+.fb-rating-btn.sel-Great{background:#dcfce7;border-color:#16a34a;color:#166534}
+.fb-rating-btn.sel-Good{background:#ecfccb;border-color:#65a30d;color:#3a5c0a}
+.fb-rating-btn.sel-Fair{background:#fef3c7;border-color:#d97706;color:#92400e}
+.fb-rating-btn.sel-Poor{background:#fee2e2;border-color:#dc2626;color:#991b1b}
+.fb-note-row{display:flex;gap:6px;align-items:center}
+.fb-note-row input{flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem}
+.fb-log-btn{padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-size:.88rem;font-weight:700;background:var(--navy);color:#fff;white-space:nowrap;transition:all .15s;opacity:.4;pointer-events:none}
+.fb-log-btn.ready{opacity:1;pointer-events:auto;background:var(--navy)}
+.fb-log-btn.ready:hover{background:var(--navy-l)}
+.fb-subtabs{display:flex;gap:4px;border-bottom:2px solid var(--border);padding-bottom:0;margin-bottom:12px}
+.fb-stab{padding:7px 14px;border:none;background:transparent;cursor:pointer;font-size:.85rem;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.fb-stab:hover{color:var(--text)}
+.fb-stab.active{color:var(--navy);border-bottom-color:var(--navy)}
+.skill-card{background:#fff;border-radius:var(--radius);padding:14px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.skill-card-name{font-size:1rem;font-weight:800;color:var(--navy);margin-bottom:10px}
+.skill-rows{display:flex;flex-direction:column;gap:3px}
+.skill-row-item{display:flex;align-items:center;justify-content:space-between;padding:4px 6px;border-radius:6px;background:var(--bg)}
+.skill-row-label{font-size:.76rem;font-weight:600;color:var(--text);flex:1}
+.skill-row-right{display:flex;align-items:center;gap:5px}
+.rating-badge{font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:10px;letter-spacing:.03em}
+.rating-badge.Great{background:#dcfce7;color:#166534}
+.rating-badge.Good{background:#ecfccb;color:#3a5c0a}
+.rating-badge.Fair{background:#fef3c7;color:#92400e}
+.rating-badge.Poor{background:#fee2e2;color:#991b1b}
+.rating-badge.none{background:#f3f4f6;color:#9ca3af}
+.trend-up{color:#16a34a;font-weight:800;font-size:.75rem}
+.trend-dn{color:#dc2626;font-weight:800;font-size:.75rem}
+.trend-eq{color:#9ca3af;font-size:.75rem}
+.obs-count{font-size:.62rem;color:var(--muted)}
+.log-entry{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#fff;border:1px solid var(--border);margin-bottom:5px}
+.log-ts{font-size:.68rem;color:var(--muted);white-space:nowrap;min-width:80px}
+.log-player{font-size:.82rem;font-weight:700;min-width:70px}
+.log-skill{font-size:.78rem;color:var(--muted);flex:1}
+.log-note{font-size:.75rem;color:var(--muted);font-style:italic;flex:2}
+.log-del{background:none;border:none;cursor:pointer;font-size:1rem;color:#d1d5db;padding:0 3px;line-height:1}
+.log-del:hover{color:#dc2626}
+.bat-rec-row{display:flex;align-items:center;gap:10px;padding:8px 11px;background:#fff;border:1px solid var(--border);border-radius:8px;margin-bottom:5px}
+.bat-rec-num{font-size:.8rem;font-weight:800;color:var(--muted);width:22px;text-align:right}
+.bat-rec-name{font-size:.9rem;font-weight:700;flex:1}
+.bat-score-bar{height:8px;border-radius:4px;background:linear-gradient(to right,var(--navy),#3d6ba8);min-width:4px}
+.bat-score-val{font-size:.72rem;color:var(--muted);min-width:80px;text-align:right}
+.skill-chips{display:flex;gap:3px;flex-wrap:wrap}
+.skill-mini{font-size:.6rem;padding:1px 5px;border-radius:6px;font-weight:700}
+
+.empty{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty-icon{font-size:3rem;margin-bottom:10px}
+.empty h3{font-size:1rem;color:var(--text);margin-bottom:4px}
+.empty p{font-size:.85rem}
+
+@media print{
+  header,nav,.sidebar,.overlay{display:none!important}
+  .ll{display:block}.main-content{width:100%}
+  body{background:#fff}.card{box-shadow:none;border:1px solid #ccc;page-break-inside:avoid}
+  .grid-wrap{overflow:visible}table.ig{min-width:unset}
+}
+@media(max-width:720px){
+  .ll{grid-template-columns:1fr}.sidebar{position:static}table.ig{min-width:720px}
+  .sync-status{display:none}
+}
+/* ── SYNC STATUS ── */
+.sync-status{font-size:.72rem;white-space:nowrap;display:flex;align-items:center;gap:8px;margin-left:10px}
+.sync-signout{background:none;border:none;color:rgba(255,255,255,.35);font-size:.68rem;cursor:pointer;padding:0;text-decoration:underline}
+.sync-signout:hover{color:rgba(255,255,255,.7)}
+/* ── LOGIN OVERLAY ── */
+.login-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.login-overlay.open{display:flex}
+.login-card{background:#fff;border-radius:18px;padding:28px 24px;width:360px;max-width:94vw;box-shadow:0 24px 80px rgba(0,0,0,.35)}
+.login-logo{text-align:center;margin-bottom:18px}
+.login-logo .em{font-size:2.8rem}
+.login-logo h2{font-size:1.25rem;font-weight:800;color:var(--navy);margin-top:6px}
+.login-logo p{font-size:.8rem;color:var(--muted);margin-top:3px}
+.login-err{color:#dc2626;font-size:.78rem;margin-bottom:8px;padding:6px 10px;background:#fee2e2;border-radius:7px;display:none}
+.login-divider{text-align:center;font-size:.75rem;color:var(--muted);margin:12px 0}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hd-brand">
+    <span style="font-size:1.6rem">🥎</span>
+    <div><h1>ELL Coast Monsters</h1><small>District 9 · Coast Division · 2026</small></div>
+  </div>
+  <nav>
+    <button class="active" onclick="switchTab('lineup')">📋 Lineup</button>
+    <button onclick="switchTab('roster')">👥 Roster</button>
+    <button onclick="switchTab('feedback')">⭐ Feedback</button>
+  </nav>
+  <div id="sync-status" class="sync-status"><span style="color:rgba(255,255,255,.35)">…</span></div>
+</header>
+
+<div id="tab-lineup" class="tab active">
+  <div class="ll">
+    <div class="sidebar">
+
+      <div class="card">
+        <div class="card-h">Games</div>
+        <div class="game-list" id="game-list"></div>
+        <button class="btn btn-gold w-full" style="margin-top:9px" onclick="newGame()">+ New Game</button>
+      </div>
+
+      <div class="card" id="game-form-card" style="display:none">
+        <div class="card-h">Game Details</div>
+        <div class="fg"><label>Date</label><input type="date" id="gf-date" onchange="gfUpdate('date',this.value)"></div>
+        <div class="fg"><label>Opponent</label>
+          <select id="gf-opp" onchange="gfUpdate('opponent',this.value)">
+            <option value="">Select…</option>
+            <option>Diamondbacks</option><option>Volts</option><option>Blaze</option><option>Firebolts</option>
+          </select>
+        </div>
+        <div class="fg"><label>Home / Away</label>
+          <select id="gf-ha" onchange="gfUpdate('homeAway',this.value)">
+            <option value="home">🏠 Home</option><option value="away">✈️ Away</option>
+          </select>
+        </div>
+        <div class="fg"><label>Planned Innings</label>
+          <select id="gf-inn" onchange="gfUpdate('innings',+this.value); renderGameForm();">
+            <option value="5">5</option><option value="6">6</option><option value="7">7</option>
+          </select>
+        </div>
+
+        <!-- PER-INNING AVAILABILITY -->
+        <div class="fg">
+          <label>📅 Availability by Inning
+            <span style="font-weight:400;font-size:.68rem"> — tap inning to toggle</span>
+          </label>
+          <div class="av-legend">
+            <span><span class="av-dot-yes"></span> Playing</span>
+            <span><span class="av-dot-no"></span> Out / Left early</span>
+          </div>
+          <div class="av-wrap" id="av-grid"></div>
+        </div>
+
+        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+          <button class="btn btn-teal btn-sm" onclick="exportGameCard()">📊 Download Game Card</button>
+          <button class="btn btn-outline btn-sm" onclick="printLineup()">🖨 Print</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteGame()">🗑 Delete</button>
+        </div>
+      </div>
+
+      <div class="card" style="position:sticky;top:68px">
+        <div class="card-h">✅ Rule Check</div>
+        <div id="val-list"><p style="font-size:.8rem;color:var(--muted)">Select a game.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">💾 Data</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn btn-outline w-full" onclick="exportData()">📤 Export backup</button>
+          <button class="btn btn-outline w-full" onclick="importData()">📥 Import backup</button>
+          <p style="font-size:.68rem;color:var(--muted);line-height:1.4;margin-top:2px">Export saves all roster, games, and feedback to a .json file. Import it on any machine to restore.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="main-content" id="lineup-main">
+      <div class="empty">
+        <div class="empty-icon">⚾</div>
+        <h3>No game selected</h3>
+        <p>Choose a game from the sidebar or create a new one.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-roster" class="tab">
+  <div class="roster-wrap" id="roster-wrap"></div>
+</div>
+
+<div id="tab-feedback" class="tab">
+  <div class="fb-layout">
+    <div class="card">
+      <div class="card-h">📝 Log Observation — any time, any context</div>
+      <div class="fb-log-form">
+        <div>
+          <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">Player</label>
+          <select class="fb-player-sel" id="fb-pid-sel" onchange="fbFormUpdate()">
+            <option value="">Select player…</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">Skill</label>
+          <div class="fb-skill-grid" id="fb-skill-grid"></div>
+          <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">Rating</label>
+          <div class="fb-rating-row" id="fb-rating-row"></div>
+          <div class="fb-note-row">
+            <input type="text" id="fb-note" placeholder="Optional note…" oninput="fbFormUpdate()">
+            <button class="fb-log-btn" id="fb-log-btn" onclick="logObservation()">Log It →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="fb-subtabs">
+        <button class="fb-stab active" onclick="switchFbTab('players',this)">👥 By Player</button>
+        <button class="fb-stab" onclick="switchFbTab('log',this)">📋 Recent Log</button>
+        <button class="fb-stab" onclick="switchFbTab('batting',this)">📊 Batting Order</button>
+      </div>
+      <div id="fb-subtab-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER PICKER MODAL -->
+<div class="overlay" id="picker-overlay" onclick="closePicker(event)">
+  <div class="modal">
+    <div class="modal-hd"><h3 id="picker-title">Select Player</h3><button class="modal-x" onclick="closePicker()">×</button></div>
+    <div id="picker-body"></div>
+  </div>
+</div>
+
+<!-- SKILL EDITOR MODAL -->
+<div class="overlay" id="sk-overlay" onclick="closeSk(event)">
+  <div class="modal">
+    <div class="modal-hd"><h3 id="sk-title">Edit Skills</h3><button class="modal-x" onclick="closeSk()">×</button></div>
+    <div id="sk-body"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════ */
+const POS       = ['P','C','1B','2B','3B','SS','LF','CF','RF'];
+const INFIELD   = new Set(['P','C','1B','2B','3B','SS']);
+const SKILLS    = ['ideal','good','ok','poor','avoid'];
+const SK_SCORE  = {ideal:4, good:3, ok:2, poor:1, avoid:0};
+const SK_LABEL  = {ideal:'⭐ Ideal', good:'✅ Good', ok:'🟡 OK', poor:'⚠️ Poor', avoid:'🚫 Avoid'};
+const POS_LABEL = {P:'Pitcher',C:'Catcher','1B':'First Base','2B':'Second Base','3B':'Third Base',
+                   SS:'Shortstop',LF:'Left Field',CF:'Center Field',RF:'Right Field'};
+const MAX_PITCH  = 3;
+const PITCH_PRI  = ['georgia','emily','emerson','alysha'];
+
+/* ── Softball observation skills ── */
+const SB_SKILLS = ['Throwing','Catching','Fielding Grounders','Fielding Pop-Flies','Pitching','Catcher','Hitting','Baserunning','Bunting','Game IQ'];
+const SB_SKILL_EMOJI = {Throwing:'💪',Catching:'🤲','Fielding Grounders':'🏃','Fielding Pop-Flies':'👆',Pitching:'⚾',Catcher:'🦺',Hitting:'🥎',Baserunning:'💨',Bunting:'🏏','Game IQ':'🧠'};
+const SB_RATINGS = ['Great','Good','Fair','Poor'];
+const SB_RATING_VAL = {Great:4,Good:3,Fair:2,Poor:1};
+// Which softball skills map to each fielding position
+const SKILL_POS_MAP = {
+  P:  ['Pitching','Throwing','Game IQ'],
+  C:  ['Catcher','Catching','Throwing','Game IQ'],
+  '1B':['Catching','Fielding Grounders','Throwing'],
+  '2B':['Fielding Grounders','Throwing','Game IQ'],
+  '3B':['Fielding Grounders','Throwing','Game IQ'],
+  SS: ['Fielding Grounders','Throwing','Game IQ'],
+  LF: ['Fielding Pop-Flies','Fielding Grounders','Throwing'],
+  CF: ['Fielding Pop-Flies','Throwing','Game IQ'],
+  RF: ['Fielding Pop-Flies','Fielding Grounders','Throwing'],
+};
+// Batting order weights
+const BAT_WEIGHTS = {Hitting:0.45,Baserunning:0.25,'Game IQ':0.20,Bunting:0.10};
+
+/* ═══════════════════════════════════════════
+   DEFAULT ROSTER
+═══════════════════════════════════════════ */
+const DEFAULT_PLAYERS = [
+  {id:'georgia', name:'Georgia Tewel', num:'21', hittingRank:2,
+   skills:{P:'ideal',C:'good','1B':'good','2B':'good','3B':'good',SS:'good',LF:'good',CF:'good',RF:'good'},
+   notes:'Starting pitcher. Versatile — good everywhere. Strong, reliable hitter.'},
+  {id:'emily', name:'Emily Kim', num:'7', hittingRank:4,
+   skills:{P:'good',C:'ok','1B':'ok','2B':'good','3B':'ok',SS:'good',LF:'ideal',CF:'ideal',RF:'good'},
+   notes:'Backup pitcher. Best in CF/LF. Strong SS & 2B. Can catch. Decent hitter.'},
+  {id:'olivia', name:'Olivia Lervick', num:'24', hittingRank:1,
+   skills:{P:'poor',C:'ideal','1B':'good','2B':'good','3B':'good',SS:'ideal',LF:'good',CF:'good',RF:'good'},
+   notes:'Best catcher by far. Elite shortstop. Best hitter — lead-off candidate.'},
+  {id:'emerson', name:'Emerson Barbeau', num:'14', hittingRank:6,
+   skills:{P:'ok',C:'avoid','1B':'ideal','2B':'ok','3B':'ideal',SS:'ok',LF:'good',CF:'ok',RF:'good'},
+   notes:'Tall corner infielder (1B/3B). 4th pitcher option. Okay hitter.'},
+  {id:'gaura', name:'Gaura Sharma', num:'1', hittingRank:3,
+   skills:{P:'avoid',C:'avoid','1B':'ideal','2B':'poor','3B':'ideal',SS:'poor',LF:'good',CF:'avoid',RF:'good'},
+   notes:'Tall corner infielder (1B/3B). Good power hitter, not quick. Avoid middle infield & CF.'},
+  {id:'aahana', name:'Aahana Desai', num:'31', hittingRank:5,
+   skills:{P:'avoid',C:'ok','1B':'ok','2B':'ok','3B':'ok',SS:'ok',LF:'ok',CF:'ok',RF:'ok'},
+   notes:'Tall, OK at most positions. Fast bat, decent hitter. OK throw, only OK catching.'},
+  {id:'alysha', name:'Alysha Pandole', num:'22', hittingRank:9,
+   skills:{P:'ok',C:'poor','1B':'poor','2B':'poor','3B':'poor',SS:'poor',LF:'poor',CF:'poor',RF:'poor'},
+   notes:'3rd pitcher option. Slow reactions, lazy. Below-avg defense. Use carefully.'},
+  {id:'harper', name:'Harper Fitzpatrick', num:'6', hittingRank:8,
+   skills:{P:'avoid',C:'avoid','1B':'good','2B':'ok','3B':'poor',SS:'avoid',LF:'ok',CF:'ok',RF:'poor'},
+   notes:'Only lefty — best at 1B. Shot-put throw; avoid 3B/RF. Not a great hitter.'},
+  {id:'ela', name:'Ela Ozkeskin', num:'3', hittingRank:10,
+   skills:{P:'avoid',C:'avoid','1B':'poor','2B':'poor','3B':'poor',SS:'avoid',LF:'poor',CF:'poor',RF:'poor'},
+   notes:'Smart but inexperienced. Struggles at all positions. Slow bat, needs mechanics work.'},
+  {id:'soha', name:'Soha Pancholi', num:'30', hittingRank:12,
+   skills:{P:'avoid',C:'avoid','1B':'poor','2B':'poor','3B':'poor',SS:'avoid',LF:'poor',CF:'poor',RF:'poor'},
+   notes:'Most inexperienced. Slow reactions & swing. Learning the game. Hard working — encourage her!'},
+  {id:'yufei', name:'Yufei Liang', num:'9', hittingRank:7,
+   skills:{P:'avoid',C:'avoid','1B':'poor','2B':'poor','3B':'poor',SS:'avoid',LF:'poor',CF:'poor',RF:'poor'},
+   notes:'Fast bat, bad mechanics. Afraid of ball. FASTEST runner on team — exploit on bases. Bad fielder.'},
+  {id:'dylan', name:'Dylan Riley', num:'12', hittingRank:11,
+   skills:{P:'avoid',C:'avoid','1B':'poor','2B':'poor','3B':'poor',SS:'avoid',LF:'poor',CF:'poor',RF:'poor'},
+   notes:'Super slow. Scared at plate. Short-arm throw. Below avg despite club experience.'},
+];
+
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+let S  = {players:[], games:[], curGameId:null};
+let feedbackLog = []; // [{id,ts,playerId,skill,rating,note}]
+let logState    = {playerId:null,skill:null,rating:null,note:''};
+let fbSubTab    = 'players';
+let pickerCtx   = null;
+let skEditId    = null;
+
+/* ═══════════════════════════════════════════
+   PERSISTENCE
+═══════════════════════════════════════════ */
+function save(){ localStorage.setItem('m_players',JSON.stringify(S.players)); localStorage.setItem('m_games',JSON.stringify(S.games)); localStorage.setItem('m_cur',S.curGameId||''); sbPush(); }
+function saveFbLog(){ localStorage.setItem('m_fblog',JSON.stringify(feedbackLog)); sbPush(); }
+function load(){
+  const p=localStorage.getItem('m_players'), g=localStorage.getItem('m_games'),
+        c=localStorage.getItem('m_cur'),      fl=localStorage.getItem('m_fblog');
+  S.players   = p  ? JSON.parse(p)  : JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
+  S.games     = g  ? JSON.parse(g)  : [];
+  S.curGameId = c  || null;
+  feedbackLog = fl ? JSON.parse(fl) : [];
+  if(p) runMigration(); // update names/numbers from DEFAULT_PLAYERS without touching lineup data
+}
+
+function runMigration(){
+  const nm={}; DEFAULT_PLAYERS.forEach(d=>nm[d.id]={name:d.name,num:d.num});
+  let changed=false;
+  S.players.forEach(p=>{if(nm[p.id]&&(p.name!==nm[p.id].name||p.num!==nm[p.id].num)){p.name=nm[p.id].name;p.num=nm[p.id].num;changed=true;}});
+  if(changed){ localStorage.setItem('m_players',JSON.stringify(S.players)); } // update localStorage directly — avoid sbPush loop during init
+}
+
+/* ═══════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════ */
+const pl      = id => S.players.find(p=>p.id===id);
+const cur     = ()  => S.games.find(g=>g.id===S.curGameId);
+const uid     = ()  => 'g'+Date.now();
+const fmtDate = d   => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+
+/* ── Per-inning availability ──
+   game.playerInnings = { playerId: [1,2,3,4,5] }  ← innings they ARE available
+   Missing key / null = available ALL innings.
+   Empty array [] = absent entire game.
+*/
+function isAvailable(game, pid, inning) {
+  // Legacy support: old absentPlayers field
+  if((game.absentPlayers||[]).includes(pid)) return false;
+  const pi = (game.playerInnings||{})[pid];
+  if(pi === undefined || pi === null) return true;   // no restriction set → available all
+  return pi.includes(inning);
+}
+
+function availableInningsList(game, pid) {
+  // Returns array of innings player IS available for (1..game.innings)
+  const pi = (game.playerInnings||{})[pid];
+  const all = Array.from({length:game.innings},(_,i)=>i+1);
+  if(pi === undefined || pi === null) return all;
+  return all.filter(i => pi.includes(i));
+}
+
+function isFullyAbsent(game, pid) {
+  for(let i=1; i<=game.innings; i++) if(isAvailable(game,pid,i)) return false;
+  return true;
+}
+
+function isPartialGame(game, pid) {
+  // Available for some innings but not all
+  const avail = availableInningsList(game, pid);
+  return avail.length > 0 && avail.length < game.innings;
+}
+
+function activePlayersForInning(game, inning) {
+  return S.players.filter(p => isAvailable(game, p.id, inning));
+}
+
+function activePlayers(game) {
+  // Players present for at least one inning
+  return S.players.filter(p => !isFullyAbsent(game, p.id));
+}
+
+function benchFor(game, inning) {
+  const active = activePlayersForInning(game, inning);
+  const plan   = game.fieldingPlan[inning]||{};
+  const assigned = new Set(Object.values(plan).filter(Boolean));
+  return active.filter(p => !assigned.has(p.id)).map(p=>p.id);
+}
+
+/* ── Availability toggle ── */
+function toggleInningAvail(pid, inning) {
+  const g = cur(); if(!g) return;
+  if(!g.playerInnings) g.playerInnings = {};
+
+  const allInnings = Array.from({length:g.innings},(_,i)=>i+1);
+  // If no entry yet, player was "all available" — initialize explicitly
+  if(g.playerInnings[pid] === undefined || g.playerInnings[pid] === null) {
+    g.playerInnings[pid] = [...allInnings];
+  }
+
+  const arr = g.playerInnings[pid];
+  const idx = arr.indexOf(inning);
+  if(idx >= 0) {
+    arr.splice(idx,1); // mark this inning unavailable
+    // Remove from fielding plan for that inning
+    const plan = g.fieldingPlan[inning]||{};
+    POS.forEach(pos=>{ if(plan[pos]===pid) plan[pos]=null; });
+  } else {
+    arr.push(inning);
+    arr.sort((a,b)=>a-b);
+  }
+
+  save(); renderGameForm(); renderLineup(); renderVal();
+}
+
+function setAllInnings(pid, available) {
+  const g = cur(); if(!g) return;
+  if(!g.playerInnings) g.playerInnings = {};
+  if(available) {
+    // Remove restriction = available all innings
+    g.playerInnings[pid] = null;
+  } else {
+    g.playerInnings[pid] = [];
+    // Clear all fielding assignments
+    for(let i=1;i<=g.innings;i++){
+      const plan=g.fieldingPlan[i]||{};
+      POS.forEach(pos=>{ if(plan[pos]===pid) plan[pos]=null; });
+    }
+  }
+  save(); renderGameForm(); renderLineup(); renderVal();
+}
+
+/* ═══════════════════════════════════════════
+   FEEDBACK ENGINE
+═══════════════════════════════════════════ */
+function skillRating(playerId, skill) {
+  // Recency-weighted average of all observations for this player+skill
+  const entries = feedbackLog
+    .filter(e=>e.playerId===playerId && e.skill===skill)
+    .sort((a,b)=>b.ts-a.ts); // newest first
+  if(!entries.length) return null;
+  const W=[1.0,0.85,0.75,0.65,0.60];
+  let wSum=0,wTotal=0;
+  entries.forEach((e,i)=>{
+    const w=W[Math.min(i,W.length-1)];
+    wSum+=SB_RATING_VAL[e.rating]*w; wTotal+=w;
+  });
+  return wSum/wTotal; // 1.0–4.0
+}
+
+function skillTrend(playerId, skill) {
+  const entries=feedbackLog.filter(e=>e.playerId===playerId&&e.skill===skill).sort((a,b)=>b.ts-a.ts);
+  if(entries.length<2) return null;
+  const d=SB_RATING_VAL[entries[0].rating]-SB_RATING_VAL[entries[1].rating];
+  return d>0?'↑':d<0?'↓':'→';
+}
+
+function skillLabel(rating) {
+  // Convert 1-4 float back to nearest label
+  if(rating===null) return null;
+  if(rating>=3.5) return 'Great';
+  if(rating>=2.5) return 'Good';
+  if(rating>=1.5) return 'Fair';
+  return 'Poor';
+}
+
+function posFeedbackBonus(playerId, position) {
+  // Avoid is a hard flag — don't override with feedback
+  if(pl(playerId)?.skills[position]==='avoid') return 0;
+  const skills=SKILL_POS_MAP[position]||[];
+  const ratings=skills.map(s=>skillRating(playerId,s)).filter(r=>r!==null);
+  if(!ratings.length) return 0;
+  const avg=ratings.reduce((a,b)=>a+b,0)/ratings.length; // 1–4
+  return (avg-2.5)/1.5*0.5; // max ±0.5 adjustment
+}
+
+function battingScore(playerId) {
+  let wSum=0,wTotal=0;
+  Object.entries(BAT_WEIGHTS).forEach(([skill,w])=>{
+    const r=skillRating(playerId,skill);
+    if(r!==null){wSum+=r*w;wTotal+=w;}
+  });
+  return wTotal>=0.2?wSum/wTotal:null; // null = insufficient data
+}
+
+/* ═══════════════════════════════════════════
+   GAME CRUD
+═══════════════════════════════════════════ */
+function makeFieldingPlan(){
+  const fp={};
+  for(let i=1;i<=7;i++){fp[i]={};POS.forEach(p=>fp[i][p]=null);}
+  return fp;
+}
+
+function newGame(){
+  const defaultOrder=['olivia','emily','georgia','gaura','emerson','yufei','alysha','dylan','aahana','harper','ela','soha'];
+  const g={
+    id:uid(), date:new Date().toISOString().slice(0,10),
+    opponent:'', homeAway:'home', innings:5,
+    battingOrder:defaultOrder.filter(id=>S.players.find(p=>p.id===id)),
+    playerInnings:{},           // per-inning availability (empty = all available)
+    fieldingPlan:makeFieldingPlan()
+  };
+  S.games.unshift(g); S.curGameId=g.id; save(); renderAll();
+}
+
+function deleteGame(){
+  if(!S.curGameId) return;
+  if(!confirm('Delete this game?')) return;
+  S.games=S.games.filter(g=>g.id!==S.curGameId);
+  S.curGameId=S.games.length?S.games[0].id:null;
+  save(); renderAll();
+}
+
+function selectGame(id){ S.curGameId=id; save(); renderAll(); }
+
+function gfUpdate(field,val){
+  const g=cur(); if(!g) return;
+  g[field]=val; save();
+  if(field==='innings') { renderGameForm(); }
+  renderAll();
+}
+
+/* ═══════════════════════════════════════════
+   AUTO-FILL
+═══════════════════════════════════════════ */
+function autoFill(){
+  const g=cur(); if(!g) return;
+  // Check minimum: need 9 available in every inning
+  for(let i=1;i<=g.innings;i++){
+    if(activePlayersForInning(g,i).length<9){
+      alert(`Only ${activePlayersForInning(g,i).length} players available in Inning ${i} — need at least 9.`);
+      return;
+    }
+  }
+  if(!confirm('Auto-fill all innings with an optimized lineup?\nThis will overwrite existing assignments.')) return;
+  doAutoFill(g);
+}
+
+function doAutoFill(g){
+  const inn    = g.innings;
+  const defScore = id => POS.reduce((s,pos)=>s+(SK_SCORE[pl(id).skills[pos]||'avoid']),0);
+
+  // Phase 1: pitching rotation
+  // For each inning, pick the next available pitcher who hasn't hit their max.
+  // Georgia: innings she's available up to 3, then Emily, Emerson, Alysha.
+  const pitchSched={}, pitchCount={};
+  PITCH_PRI.forEach(id=>pitchCount[id]=0);
+  for(let i=1;i<=inn;i++){
+    const avail=activePlayersForInning(g,i).map(p=>p.id);
+    let assigned=false;
+    for(const pid of PITCH_PRI){
+      if(avail.includes(pid) && pitchCount[pid]<MAX_PITCH){
+        pitchSched[i]=pid; pitchCount[pid]++; assigned=true; break;
+      }
+    }
+    if(!assigned){
+      const fb=avail.find(id=>['ideal','good','ok'].includes(pl(id)?.skills?.P))||avail[0];
+      pitchSched[i]=fb;
+    }
+  }
+
+  // Phase 2: bench rotation
+  // Track bench count per player across innings they're available.
+  // Priority: fewest benches → most remaining available innings → weakest defense.
+  const sitCount={};
+  S.players.forEach(p=>sitCount[p.id]=0);
+  const benchPlan={};
+
+  for(let i=1;i<=inn;i++){
+    const avail=activePlayersForInning(g,i).map(p=>p.id);
+    const pitcher=pitchSched[i];
+    const benchNeeded=avail.length-9;
+
+    if(benchNeeded<=0){ benchPlan[i]=[]; continue; }
+
+    // How many innings each player has remaining (from this inning onward)
+    const remainingInn = id => {
+      let cnt=0;
+      for(let j=i;j<=inn;j++) if(isAvailable(g,id,j)) cnt++;
+      return cnt;
+    };
+
+    const candidates=[...avail]
+      .filter(id=>id!==pitcher)
+      .sort((a,b)=>{
+        if(sitCount[a]!==sitCount[b]) return sitCount[a]-sitCount[b];  // fewer benches first
+        const ra=remainingInn(a), rb=remainingInn(b);
+        if(ra!==rb) return rb-ra; // more innings left = bench them first (they can catch up)
+        return defScore(a)-defScore(b); // weakest defense bench first
+      });
+
+    benchPlan[i]=candidates.slice(0,benchNeeded);
+    benchPlan[i].forEach(id=>sitCount[id]++);
+  }
+
+  // Phase 3: assign positions
+  const posOrder=['C','SS','3B','1B','2B','LF','CF','RF'];
+  for(let i=1;i<=inn;i++){
+    POS.forEach(pos=>g.fieldingPlan[i][pos]=null);
+    const benched=new Set(benchPlan[i]||[]);
+    const fieldable=activePlayersForInning(g,i).map(p=>p.id).filter(id=>!benched.has(id));
+    const pitcher=pitchSched[i];
+    g.fieldingPlan[i]['P']=pitcher;
+    const assigned=new Set([pitcher]);
+
+    // Per-player infield count so far
+    const infieldSoFar={};
+    S.players.forEach(p=>{
+      let cnt=0;
+      for(let j=1;j<i;j++){
+        const pos=Object.entries(g.fieldingPlan[j]||{}).find(([,pid])=>pid===p.id)?.[0];
+        if(pos&&INFIELD.has(pos)) cnt++;
+      }
+      infieldSoFar[p.id]=cnt;
+    });
+
+    posOrder.forEach(pos=>{
+      const avail=fieldable.filter(id=>!assigned.has(id));
+      if(!avail.length) return;
+      const best=avail.reduce((b,id)=>{
+        const sk=SK_SCORE[pl(id).skills[pos]||'avoid'];
+        const fbBonus=posFeedbackBonus(id,pos); // ±0.5 based on observations
+        let score=sk*100+fbBonus*50;
+        if(pl(id).skills[pos]==='avoid') score-=180;
+        if(INFIELD.has(pos) && infieldSoFar[id]<2) score+=45;
+        if(!INFIELD.has(pos) && infieldSoFar[id]>=2) score+=15;
+        return score>b.score?{id,score}:b;
+      },{id:null,score:-9999});
+      if(best.id){ g.fieldingPlan[i][pos]=best.id; assigned.add(best.id); }
+    });
+  }
+
+  const pitchLines=PITCH_PRI.filter(id=>pitchCount[id]>0).map(id=>`${pl(id)?.name||id} (${pitchCount[id]} inn)`).join(', ');
+  const sitLines=S.players.filter(p=>sitCount[p.id]>0).map(p=>`${p.name}×${sitCount[p.id]}`).join(', ');
+
+  save(); renderLineup(); renderVal();
+  const box=document.getElementById('autofill-result');
+  if(box) box.innerHTML=`<div class="autofill-box"><strong>✨ Lineup auto-filled!</strong><br>
+    <strong>Pitching:</strong> ${pitchLines||'—'}<br>
+    <strong>Bench:</strong> ${sitLines||'none'}<br>
+    <em style="font-size:.72rem">Review and adjust as needed.</em></div>`;
+}
+
+/* ═══════════════════════════════════════════
+   SUGGEST BATTING ORDER
+═══════════════════════════════════════════ */
+function suggestBatOrder(){
+  const g=cur(); if(!g) return;
+  const hasData=S.players.some(p=>battingScore(p.id)!==null);
+  const msg=hasData
+    ? 'Sort batting order using observation data + manual ranks?\n(Drag to adjust after.)'
+    : 'No observations logged yet — sorting by manual hitting rank.\nLog observations in the Feedback tab for data-driven suggestions.';
+  if(!confirm(msg)) return;
+  const active=[...activePlayers(g)].sort((a,b)=>{
+    const sa=battingScore(a.id), sb=battingScore(b.id);
+    if(sa!==null&&sb!==null) return sb-sa; // higher score = bat earlier
+    if(sa!==null&&sb===null) return -1;    // data beats no-data
+    if(sa===null&&sb!==null) return 1;
+    return (a.hittingRank||99)-(b.hittingRank||99); // fallback to manual rank
+  });
+  const absent=S.players.filter(p=>isFullyAbsent(g,p.id));
+  g.battingOrder=[...active,...absent].map(p=>p.id);
+  save(); renderBatOrder(g);
+}
+
+/* ═══════════════════════════════════════════
+   VALIDATION
+═══════════════════════════════════════════ */
+function validate(game){
+  if(!game) return [];
+  const res=[];
+  const inn=game.innings;
+  const stats={};
+  S.players.forEach(p=>{stats[p.id]={pitch:0,bench:0,field:0,infield:0,avoidV:[]};});
+  let anyFilled=false;
+
+  for(let i=1;i<=inn;i++){
+    const plan=game.fieldingPlan[i]||{};
+    const bench=benchFor(game,i);
+    const seen=new Set();
+    POS.forEach(pos=>{
+      const pid=plan[pos]; if(!pid) return;
+      anyFilled=true;
+      if(!isAvailable(game,pid,i))
+        res.push({t:'err',msg:`Inning ${i}: ${pl(pid)?.name||pid} is not available this inning but is assigned to ${pos}! Remove them.`});
+      if(seen.has(pid))
+        res.push({t:'err',msg:`Inning ${i}: ${pl(pid)?.name||pid} assigned to multiple positions!`});
+      seen.add(pid);
+      stats[pid].field++;
+      if(pos==='P') stats[pid].pitch++;
+      if(INFIELD.has(pos)) stats[pid].infield++;
+      if(pl(pid)?.skills[pos]==='avoid') stats[pid].avoidV.push(`I${i}/${pos}`);
+    });
+    bench.forEach(pid=>stats[pid].bench++);
+  }
+
+  if(!anyFilled){
+    res.push({t:'warn',msg:'No assignments yet — click ✨ Auto-Fill to get started.'});
+    return res;
+  }
+
+  // Rule 1: pitcher max 3 innings
+  let pitchOk=true;
+  S.players.forEach(p=>{
+    if(stats[p.id].pitch>MAX_PITCH){
+      res.push({t:'err',msg:`${p.name} pitched ${stats[p.id].pitch} innings — max is ${MAX_PITCH}!`});
+      pitchOk=false;
+    }
+  });
+  const pitching=S.players.filter(p=>stats[p.id].pitch>0);
+  if(pitchOk&&pitching.length)
+    res.push({t:'ok',msg:`Pitching OK: ${pitching.map(p=>`${p.name} ${stats[p.id].pitch}/${MAX_PITCH}`).join(' · ')}`});
+
+  // Rule 2: bench equity — sit once before anyone sits twice
+  // Only among players available for ≥2 innings (can't bench a player who's only there 1 inning)
+  const eligible=S.players.filter(p=>availableInningsList(game,p.id).length>=2);
+  const noBench=eligible.filter(p=>stats[p.id].bench===0).map(p=>p.name);
+  const twoBench=eligible.filter(p=>stats[p.id].bench>=2).map(p=>p.name);
+  if(twoBench.length&&noBench.length)
+    res.push({t:'err',msg:`Bench inequity: ${twoBench.join(', ')} sitting 2+ times but ${noBench.join(', ')} haven't sat yet.`});
+  else if(!noBench.length||!twoBench.length)
+    res.push({t:'ok',msg:'Bench rotation equitable — no one benched twice while others haven\'t sat. ✓'});
+  else
+    res.push({t:'warn',msg:`Not yet benched: ${noBench.join(', ')}`});
+
+  // Rule 3: ≥1 consecutive infield inning within first 5
+  const noInfield5=[];
+  S.players.forEach(p=>{
+    if(!availableInningsList(game,p.id).length) return;
+    let consec=0, maxC=0, appeared=false;
+    for(let i=1;i<=Math.min(5,inn);i++){
+      if(!isAvailable(game,p.id,i)) continue;
+      appeared=true;
+      const pos=Object.entries(game.fieldingPlan[i]||{}).find(([,id])=>id===p.id)?.[0];
+      if(pos&&INFIELD.has(pos)){consec++;maxC=Math.max(maxC,consec);}
+      else consec=0;
+    }
+    if(appeared&&maxC<1) noInfield5.push(p.name);
+  });
+  if(noInfield5.length)
+    res.push({t:'err',msg:`Need ≥1 infield inning (first 5): ${noInfield5.join(', ')}`});
+  else
+    res.push({t:'ok',msg:'All players have ≥1 infield inning within first 5. ✓'});
+
+  // Guideline (not a hard rule): rules say players "should" average ≥2 infield innings
+  const lowInfield=S.players.filter(p=>stats[p.id].field>0&&stats[p.id].infield<2);
+  if(lowInfield.length)
+    res.push({t:'warn',msg:`Guideline: players should average ≥2 infield innings — ${lowInfield.map(p=>`${p.name} (${stats[p.id].infield} so far)`).join(', ')}`});
+  else if(S.players.some(p=>stats[p.id].field>0))
+    res.push({t:'ok',msg:'≥2 infield innings guideline met for all players. ✓'});
+
+  // Avoid violations
+  const avoids=S.players.filter(p=>stats[p.id].avoidV.length).map(p=>`${p.name}: ${stats[p.id].avoidV.join(',')}`);
+  if(avoids.length) res.push({t:'warn',msg:`"Avoid" positions used: ${avoids.join(' | ')}`});
+
+  // Completeness
+  const missing=[];
+  for(let i=1;i<=inn;i++) POS.forEach(pos=>{ if(!game.fieldingPlan[i]?.[pos]) missing.push(`I${i}·${pos}`); });
+  if(missing.length)
+    res.push({t:'warn',msg:`${missing.length} unfilled: ${missing.slice(0,8).join(', ')}${missing.length>8?'…':''}`});
+  else
+    res.push({t:'ok',msg:'All positions filled. ✓'});
+
+  return res;
+}
+
+/* ═══════════════════════════════════════════
+   TAB SWITCHING
+═══════════════════════════════════════════ */
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.querySelectorAll('nav button').forEach((b,i)=>b.classList.toggle('active',['lineup','roster','feedback'][i]===tab));
+  if(tab==='roster') renderRoster();
+  if(tab==='feedback') renderFbTab();
+  if(tab==='lineup') renderAll();
+}
+
+/* ═══════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════ */
+function renderAll(){ renderGameList(); renderGameForm(); renderLineup(); renderVal(); }
+
+function renderGameList(){
+  const el=document.getElementById('game-list');
+  if(!S.games.length){el.innerHTML='<p style="font-size:.78rem;color:var(--muted);padding:2px">No games yet.</p>';return;}
+  el.innerHTML=S.games.map(g=>{
+    const partial=S.players.filter(p=>isPartialGame(g,p.id)).length;
+    const absent=S.players.filter(p=>isFullyAbsent(g,p.id)).length;
+    let note='';
+    if(absent) note+=` · ${absent} absent`;
+    if(partial) note+=` · ${partial} partial`;
+    return `<div class="game-item${g.id===S.curGameId?' sel':''}" onclick="selectGame('${g.id}')">
+      <div>
+        <div class="game-item-opp">vs ${g.opponent||'TBD'}</div>
+        <div class="game-item-sub">${fmtDate(g.date)} · ${g.homeAway==='home'?'🏠':'✈️'} · ${g.innings}inn${note}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderGameForm(){
+  const g=cur();
+  document.getElementById('game-form-card').style.display=g?'block':'none';
+  if(!g) return;
+  document.getElementById('gf-date').value=g.date||'';
+  document.getElementById('gf-opp').value=g.opponent||'';
+  document.getElementById('gf-ha').value=g.homeAway||'home';
+  document.getElementById('gf-inn').value=g.innings||5;
+  renderAvailGrid(g);
+}
+
+function renderAvailGrid(g){
+  const inn=g.innings;
+  const innNums=Array.from({length:inn},(_,i)=>i+1);
+
+  // Header row
+  let html=`<table class="av-table"><thead><tr>
+    <th style="text-align:left">Player</th>
+    ${innNums.map(i=>`<th class="av-inn-h">${i}</th>`).join('')}
+    <th></th>
+  </tr></thead><tbody>`;
+
+  S.players.forEach(p=>{
+    const avail=innNums.map(i=>isAvailable(g,p.id,i));
+    const allAvail=avail.every(Boolean);
+    const noneAvail=avail.every(v=>!v);
+    html+=`<tr>
+      <td class="av-name-cell${noneAvail?' fully-out':''}" title="${p.name}">${p.name}</td>
+      ${innNums.map((i,idx)=>`
+        <td><button class="av-btn ${avail[idx]?'av-yes':'av-no'}"
+          onclick="toggleInningAvail('${p.id}',${i})"
+          title="${avail[idx]?'Available inning '+i+' (click to mark out)':'Out inning '+i+' (click to mark available)'}"
+        >${i}</button></td>`).join('')}
+      <td style="padding-left:3px">
+        <button class="av-all-btn" onclick="${allAvail?`setAllInnings('${p.id}',false)`:`setAllInnings('${p.id}',true)`}"
+          title="${allAvail?'Mark fully absent':'Set all innings available'}"
+        >${allAvail?'Out':'All'}</button>
+      </td>
+    </tr>`;
+  });
+
+  html+=`</tbody></table>`;
+  document.getElementById('av-grid').innerHTML=html;
+}
+
+function renderVal(){
+  const el=document.getElementById('val-list');
+  const g=cur();
+  if(!g){el.innerHTML='<p style="font-size:.8rem;color:var(--muted)">Select a game.</p>';return;}
+  el.innerHTML=validate(g).map(r=>`<div class="val-item val-${r.t}">${r.msg}</div>`).join('');
+}
+
+function renderLineup(){
+  const el=document.getElementById('lineup-main');
+  const g=cur();
+  if(!g){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">⚾</div><h3>No game selected</h3><p>Choose a game or create a new one.</p></div>`;
+    return;
+  }
+  const opp=g.opponent||'TBD';
+  const dateS=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'';
+  const absent=S.players.filter(p=>isFullyAbsent(g,p.id)).map(p=>p.name);
+  const partial=S.players.filter(p=>isPartialGame(g,p.id));
+
+  let statusLine=`${dateS}${dateS?' · ':''}${g.homeAway==='home'?'🏠 Home':'✈️ Away'} · ${g.innings} innings`;
+  if(absent.length) statusLine+=` · <span style="color:#dc2626">⛔ Absent: ${absent.join(', ')}</span>`;
+  if(partial.length) statusLine+=` · <span style="color:#d97706">⏱ Partial: ${partial.map(p=>{
+    const inns=availableInningsList(g,p.id);
+    return `${p.name} (inn ${inns.join(',')})`;
+  }).join(', ')}</span>`;
+
+  el.innerHTML=`
+    <div class="card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div>
+          <div style="font-size:1.25rem;font-weight:800;color:var(--navy)">vs ${opp}</div>
+          <div style="font-size:.78rem;color:var(--muted);line-height:1.6">${statusLine}</div>
+          <div class="pitch-bar">${buildPitchChips(g)}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="card-h" style="margin:0">Batting Order <span style="font-weight:400;font-size:.7rem">(drag to reorder)</span></div>
+        <button class="btn btn-teal btn-sm" onclick="suggestBatOrder()">📊 Suggest Order</button>
+      </div>
+      <div class="bat-grid" id="bat-grid"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div class="card-h" style="margin:0">Fielding Plan</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <div style="display:flex;gap:3px;font-size:.66rem">
+            <span style="background:var(--ideal-bg);color:var(--ideal);padding:2px 6px;border-radius:4px;font-weight:700">Ideal</span>
+            <span style="background:var(--good-bg);color:var(--good);padding:2px 6px;border-radius:4px;font-weight:700">Good</span>
+            <span style="background:var(--ok-bg);color:var(--ok);padding:2px 6px;border-radius:4px;font-weight:700">OK</span>
+            <span style="background:var(--poor-bg);color:var(--poor);padding:2px 6px;border-radius:4px;font-weight:700">Poor</span>
+            <span style="background:var(--avoid-bg);color:var(--avoid);padding:2px 6px;border-radius:4px;font-weight:700">Avoid</span>
+          </div>
+          <button class="btn btn-purple btn-sm" onclick="autoFill()">✨ Auto-Fill</button>
+          <button class="btn btn-outline btn-sm" onclick="clearAll()">Clear</button>
+        </div>
+      </div>
+      <div id="autofill-result"></div>
+      <div class="grid-wrap">${buildGrid(g)}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">Playing Time Summary</div>
+      <div class="pt-grid">${buildPTSummary(g)}</div>
+    </div>
+  `;
+  renderBatOrder(g);
+}
+
+function buildPitchChips(g){
+  return S.players.filter(p=>{
+    let c=0;for(let i=1;i<=g.innings;i++) if(g.fieldingPlan[i]?.P===p.id) c++;
+    return c>0;
+  }).map(p=>{
+    let c=0;for(let i=1;i<=g.innings;i++) if(g.fieldingPlan[i]?.P===p.id) c++;
+    const cls=c>=MAX_PITCH?'pc-max':c===MAX_PITCH-1?'pc-warn':'pc-ok';
+    return `<span class="pitch-chip ${cls}">⚾ ${p.name}: ${c}/${MAX_PITCH}</span>`;
+  }).join('');
+}
+
+function buildGrid(g){
+  let h=`<table class="ig"><thead><tr><th>Inn</th>`;
+  POS.forEach(p=>h+=`<th>${p}</th>`);
+  h+=`<th class="bench-h">Bench / Out</th></tr></thead><tbody>`;
+
+  for(let i=1;i<=g.innings;i++){
+    const plan=g.fieldingPlan[i]||{};
+    const bench=benchFor(g,i);
+    // Players not available this inning (track for display)
+    const unavailThisInn=S.players.filter(p=>!isAvailable(g,p.id,i)).map(p=>p.id);
+
+    // Prior bench count per player (for warning color)
+    const priorBench={};
+    S.players.forEach(p=>{
+      let cnt=0;
+      for(let j=1;j<i;j++) if(benchFor(g,j).includes(p.id)) cnt++;
+      priorBench[p.id]=cnt;
+    });
+
+    h+=`<tr><td class="inn-lbl">${i}</td>`;
+    POS.forEach(pos=>{
+      const pid=plan[pos];
+      const player=pid?pl(pid):null;
+      const unavailWarning=pid&&!isAvailable(g,pid,i);
+      const skill=player&&!unavailWarning?player.skills[pos]:null;
+      const skCls=unavailWarning?'pc-unavail':skill?`sk-${skill}`:'empty';
+      const nameT=player?player.name:'—';
+      const skT=unavailWarning?'⛔ OUT':skill?SK_LABEL[skill].split(' ').slice(1).join(' '):'';
+      h+=`<td><div class="pc ${skCls}" onclick="openPicker(${i},'${pos}')">
+        <div class="pc-name">${nameT}</div>
+        ${player?`<div class="pc-sk">${skT}</div>`:''}
+      </div></td>`;
+    });
+
+    // Bench column: show bench players + unavailable players
+    h+=`<td class="bench-td"><div style="display:flex;flex-wrap:wrap">`;
+    bench.forEach(pid=>{
+      const p=pl(pid);
+      const prior=priorBench[pid]||0;
+      const cls=prior>=2?'bench-pill bp-err':prior>=1?'bench-pill bp-warn':'bench-pill';
+      h+=`<span class="${cls}" title="${prior?prior+'x benched already':''}">${p?.name||pid}</span>`;
+    });
+    unavailThisInn.forEach(pid=>{
+      const p=pl(pid);
+      const inns=availableInningsList(g,pid);
+      const tip=inns.length?`Available inn: ${inns.join(',')}`:'Absent all game';
+      h+=`<span class="bench-pill bp-gone" title="${tip}">🚫 ${p?.name||pid}</span>`;
+    });
+    if(!bench.length&&!unavailThisInn.length) h+=`<span style="font-size:.7rem;color:var(--muted)">—</span>`;
+    h+=`</div></td></tr>`;
+  }
+  return h+`</tbody></table>`;
+}
+
+function buildPTSummary(g){
+  return S.players.map(p=>{
+    const availInns=availableInningsList(g,p.id);
+    if(!availInns.length) return `<div class="pt-row" style="opacity:.35"><div class="pt-name">${p.name}</div><div class="pt-detail">⛔ Absent</div></div>`;
+    if(availInns.length<g.innings){
+      return `<div class="pt-row" style="border-color:#fed7aa">
+        <div class="pt-name">${p.name} <span style="font-size:.65rem;color:#d97706">⏱ inn ${availInns.join(',')}</span></div>
+        ${buildPTDetail(g,p.id)}
+      </div>`;
+    }
+    let field=0,infield=0,bench=0;
+    for(let i=1;i<=g.innings;i++){
+      const pos=Object.entries(g.fieldingPlan[i]||{}).find(([,id])=>id===p.id)?.[0];
+      if(pos){field++;if(INFIELD.has(pos)) infield++;}
+      else if(benchFor(g,i).includes(p.id)) bench++;
+    }
+    const warn=field>0&&infield<2;
+    return `<div class="pt-row${warn?' pt-err':''}">
+      <div class="pt-name">${p.name}</div>
+      <div class="pt-detail">⚙️ ${field} innings (${infield} infield) · 🪑 ${bench} bench${warn?' ⚠️':''}</div>
+    </div>`;
+  }).join('');
+}
+
+function buildPTDetail(g,pid){
+  let field=0,infield=0,bench=0;
+  for(let i=1;i<=g.innings;i++){
+    if(!isAvailable(g,pid,i)) continue;
+    const pos=Object.entries(g.fieldingPlan[i]||{}).find(([,id])=>id===pid)?.[0];
+    if(pos){field++;if(INFIELD.has(pos)) infield++;}
+    else if(benchFor(g,i).includes(pid)) bench++;
+  }
+  return `<div class="pt-detail">⚙️ ${field} innings (${infield} infield) · 🪑 ${bench} bench</div>`;
+}
+
+function clearAll(){
+  const g=cur();if(!g) return;
+  if(!confirm('Clear all fielding assignments?')) return;
+  g.fieldingPlan=makeFieldingPlan();
+  const r=document.getElementById('autofill-result');
+  if(r) r.innerHTML='';
+  save(); renderLineup(); renderVal();
+}
+
+/* ═══════════════════════════════════════════
+   BATTING ORDER
+═══════════════════════════════════════════ */
+let dragSrc=null;
+function renderBatOrder(g){
+  const el=document.getElementById('bat-grid'); if(!el) return;
+  el.innerHTML='';
+  let activeIdx=1;
+  g.battingOrder.forEach((pid,idx)=>{
+    const p=pl(pid); if(!p) return;
+    const fullyOut=isFullyAbsent(g,pid);
+    const partial=isPartialGame(g,pid);
+    const inns=partial?availableInningsList(g,pid):[];
+    const div=document.createElement('div');
+    div.className='bat-slot'+(fullyOut?' absent-slot':partial?' partial-slot':'');
+    if(!fullyOut) div.draggable=true;
+    div.dataset.i=idx;
+    const subText=fullyOut?'<span style="font-size:.62rem;color:#dc2626"> ⛔absent</span>':
+                  partial?`<span style="font-size:.62rem;color:#d97706"> ⏱inn${inns.join(',')}</span>`:'';
+    div.innerHTML=`<span class="bat-num">${fullyOut?'—':activeIdx}</span><span class="bat-name">${p.name}${subText}</span>`;
+    if(!fullyOut){ activeIdx++;
+      div.addEventListener('dragstart',e=>{dragSrc=idx;div.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+      div.addEventListener('dragend',()=>div.classList.remove('dragging'));
+      div.addEventListener('dragover',e=>{e.preventDefault();div.classList.add('dg-over');});
+      div.addEventListener('dragleave',()=>div.classList.remove('dg-over'));
+      div.addEventListener('drop',e=>{
+        e.preventDefault();div.classList.remove('dg-over');
+        if(dragSrc===null||dragSrc===idx) return;
+        const arr=[...g.battingOrder];
+        const[moved]=arr.splice(dragSrc,1); arr.splice(idx,0,moved);
+        g.battingOrder=arr; dragSrc=null; save(); renderBatOrder(g);
+      });
+    }
+    el.appendChild(div);
+  });
+}
+
+/* ═══════════════════════════════════════════
+   PLAYER PICKER MODAL
+═══════════════════════════════════════════ */
+function openPicker(inning,pos){
+  pickerCtx={inning,pos};
+  const g=cur(); if(!g) return;
+  const plan=g.fieldingPlan[inning]||{};
+  const curPid=plan[pos];
+  const busyElsewhere=new Set(Object.entries(plan).filter(([p,id])=>p!==pos&&id).map(([,id])=>id));
+
+  document.getElementById('picker-title').textContent=`${POS_LABEL[pos]} — Inning ${inning}`;
+
+  const bySkill={};
+  SKILLS.forEach(s=>bySkill[s]=[]);
+  // Only show players available this inning
+  S.players.filter(p=>isAvailable(g,p.id,inning)).forEach(p=>bySkill[p.skills[pos]||'avoid'].push(p));
+
+  const benchCount={};
+  S.players.forEach(p=>{
+    let c=0;for(let i=1;i<=g.innings;i++) if(benchFor(g,i).includes(p.id)) c++;
+    benchCount[p.id]=c;
+  });
+
+  let html='';
+  // Flag if any players are unavailable this inning (to explain their absence from list)
+  const unavailCount=S.players.filter(p=>!isAvailable(g,p.id,inning)).length;
+  if(unavailCount) html+=`<p style="font-size:.72rem;color:#d97706;margin-bottom:8px;padding:6px 8px;background:#fff8f0;border-radius:6px">
+    ⏱ ${unavailCount} player${unavailCount>1?'s are':' is'} unavailable inning ${inning} and not shown.</p>`;
+
+  SKILLS.forEach(skill=>{
+    const pls=bySkill[skill]; if(!pls.length) return;
+    html+=`<div class="pop-group"><h4>${SK_LABEL[skill]}</h4>`;
+    pls.forEach(p=>{
+      const isCur=p.id===curPid, isBusy=busyElsewhere.has(p.id);
+      const partial=isPartialGame(g,p.id);
+      const inns=partial?availableInningsList(g,p.id):[];
+      const bc=benchCount[p.id];
+      let sub=isBusy?'⚠️ Already assigned this inning':
+               partial?`⏱ Only inn ${inns.join(',')} · ${bc} bench`:
+               bc>0?`🪑 ${bc} bench inning${bc>1?'s':''}` :'';
+      html+=`<div class="pop-opt sk-${skill}${isCur?' cur':''}${isBusy?' busy':''}" onclick="selectFromPicker('${p.id}')">
+        <div><div class="pop-name">${p.name}${isCur?' ✓':''}</div>${sub?`<div class="pop-sub">${sub}</div>`:''}</div>
+        <span class="sk-badge ${skill}">${skill}</span>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  if(curPid) html+=`<button class="clear-pos-btn" onclick="clearPos()">Clear ${POS_LABEL[pos]}</button>`;
+
+  document.getElementById('picker-body').innerHTML=html;
+  document.getElementById('picker-overlay').classList.add('open');
+}
+
+function selectFromPicker(pid){
+  if(!pickerCtx) return;
+  const{inning,pos}=pickerCtx, g=cur(); if(!g) return;
+  if(!isAvailable(g,pid,inning)){
+    alert(`${pl(pid)?.name||pid} is not available in Inning ${inning}.`);
+    return;
+  }
+  const plan=g.fieldingPlan[inning]||{};
+  const conflict=Object.entries(plan).find(([p,id])=>p!==pos&&id===pid);
+  if(conflict){
+    const[otherPos]=conflict;
+    if(!confirm(`${pl(pid).name} is already at ${otherPos} in Inning ${inning}. Move them to ${pos}?`)) return;
+    g.fieldingPlan[inning][otherPos]=null;
+  }
+  g.fieldingPlan[inning][pos]=pid;
+  save(); closePicker(); renderLineup(); renderVal();
+}
+
+function clearPos(){
+  if(!pickerCtx) return;
+  const{inning,pos}=pickerCtx, g=cur(); if(!g) return;
+  g.fieldingPlan[inning][pos]=null;
+  save(); closePicker(); renderLineup(); renderVal();
+}
+
+function closePicker(e){
+  if(e&&e.target!==document.getElementById('picker-overlay')) return;
+  document.getElementById('picker-overlay').classList.remove('open');
+  pickerCtx=null;
+}
+
+/* ═══════════════════════════════════════════
+   ROSTER TAB
+═══════════════════════════════════════════ */
+function renderRoster(){
+  document.getElementById('roster-wrap').innerHTML=S.players.map(p=>`
+    <div class="p-card">
+      <div class="p-card-hd">
+        <div>
+          <div class="p-card-name">${p.name}<span class="hit-rank">${p.hittingRank||'?'}</span></div>
+          <div class="p-card-sub">#${p.num||'—'} · Bat rank ${p.hittingRank||'?'}/12</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="openSk('${p.id}')">Edit ✏️</button>
+      </div>
+      <div class="pos-grid">
+        ${POS.map(pos=>`<div class="pos-cell-r sk-${p.skills[pos]||'avoid'}" onclick="openSk('${p.id}')">
+          <div class="pos-lbl">${pos}</div><div class="pos-sk-lbl">${p.skills[pos]||'avoid'}</div>
+        </div>`).join('')}
+      </div>
+      <div class="p-notes">${p.notes}</div>
+    </div>`).join('');
+}
+
+function openSk(id){
+  skEditId=id; const p=pl(id); if(!p) return;
+  document.getElementById('sk-title').textContent=`${p.name} — Skills`;
+  let html=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div class="fg" style="margin:0"><label>Jersey #</label>
+        <input type="text" value="${p.num||''}" style="width:100%" onchange="upPlayerField('${id}','num',this.value)">
+      </div>
+      <div class="fg" style="margin:0"><label>Hitting Rank (1=best)</label>
+        <input type="number" min="1" max="12" value="${p.hittingRank||''}" style="width:100%" onchange="upPlayerField('${id}','hittingRank',+this.value)">
+      </div>
+    </div>
+    <div class="fg"><label>Coach Notes</label>
+      <input type="text" value="${p.notes||''}" onchange="upPlayerField('${id}','notes',this.value)">
+    </div>
+    <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:12px 0 8px">Position Skills</div>`;
+  POS.forEach(pos=>{
+    const c=p.skills[pos]||'avoid';
+    html+=`<div class="sk-row"><span class="sk-row-lbl">${POS_LABEL[pos]}</span>
+      <div class="sk-opts">${SKILLS.map(s=>`<button class="sk-opt-btn ${s}${c===s?' sel':''}" onclick="upSkill('${id}','${pos}','${s}')">${s}</button>`).join('')}</div>
+    </div>`;
+  });
+  document.getElementById('sk-body').innerHTML=html;
+  document.getElementById('sk-overlay').classList.add('open');
+}
+
+function upPlayerField(id,field,val){ const p=pl(id); if(!p) return; p[field]=val; save(); }
+function upSkill(id,pos,skill){ const p=pl(id); if(!p) return; p.skills[pos]=skill; save(); openSk(id); if(cur()){renderLineup();renderVal();} }
+function closeSk(e){
+  if(e&&e.target!==document.getElementById('sk-overlay')) return;
+  document.getElementById('sk-overlay').classList.remove('open');
+  skEditId=null; renderRoster();
+}
+
+/* ═══════════════════════════════════════════
+   FEEDBACK TAB
+═══════════════════════════════════════════ */
+function renderFbTab(){
+  // Populate player selector
+  const sel=document.getElementById('fb-pid-sel'); if(!sel) return;
+  sel.innerHTML='<option value="">Select player…</option>'+
+    S.players.map(p=>`<option value="${p.id}"${logState.playerId===p.id?' selected':''}>${p.name}</option>`).join('');
+  // Render skill buttons
+  renderFbSkillGrid();
+  renderFbRatingRow();
+  renderFbSubTab();
+  updateFbLogBtn();
+}
+
+function renderFbSkillGrid(){
+  const el=document.getElementById('fb-skill-grid'); if(!el) return;
+  el.innerHTML=SB_SKILLS.map(s=>`
+    <button class="fb-skill-btn${logState.skill===s?' sel':''}" onclick="fbSelectSkill('${s}')">
+      ${SB_SKILL_EMOJI[s]} ${s}
+    </button>`).join('');
+}
+
+function renderFbRatingRow(){
+  const el=document.getElementById('fb-rating-row'); if(!el) return;
+  el.innerHTML=SB_RATINGS.map(r=>`
+    <button class="fb-rating-btn${logState.rating===r?' sel-'+r:''}" onclick="fbSelectRating('${r}')">${r}</button>`).join('');
+}
+
+function fbFormUpdate(){
+  logState.playerId=document.getElementById('fb-pid-sel')?.value||null;
+  logState.note=document.getElementById('fb-note')?.value||'';
+  updateFbLogBtn();
+}
+
+function fbSelectSkill(s){ logState.skill=s; renderFbSkillGrid(); updateFbLogBtn(); }
+function fbSelectRating(r){ logState.rating=r; renderFbRatingRow(); updateFbLogBtn(); }
+
+function updateFbLogBtn(){
+  const btn=document.getElementById('fb-log-btn'); if(!btn) return;
+  const ready=logState.playerId&&logState.skill&&logState.rating;
+  btn.classList.toggle('ready',!!ready);
+}
+
+function logObservation(){
+  if(!logState.playerId||!logState.skill||!logState.rating) return;
+  const entry={
+    id:'fb'+Date.now(), ts:Date.now(),
+    playerId:logState.playerId, skill:logState.skill,
+    rating:logState.rating, note:logState.note.trim()
+  };
+  feedbackLog.unshift(entry); // newest first
+  saveFbLog();
+  // Reset skill+rating+note but keep player selected for fast repeat logging
+  logState.skill=null; logState.rating=null; logState.note='';
+  const noteEl=document.getElementById('fb-note'); if(noteEl) noteEl.value='';
+  renderFbSkillGrid(); renderFbRatingRow(); updateFbLogBtn();
+  renderFbSubTab(); // refresh subtabs
+}
+
+function switchFbTab(tab, btn){
+  fbSubTab=tab;
+  document.querySelectorAll('.fb-stab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderFbSubTab();
+}
+
+function renderFbSubTab(){
+  const el=document.getElementById('fb-subtab-content'); if(!el) return;
+  if(fbSubTab==='players') el.innerHTML=renderFbPlayers();
+  else if(fbSubTab==='log') el.innerHTML=renderFbLog();
+  else if(fbSubTab==='batting') el.innerHTML=renderFbBatting();
+}
+
+function renderFbPlayers(){
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
+    ${S.players.map(p=>{
+      const totalObs=feedbackLog.filter(e=>e.playerId===p.id).length;
+      return `<div class="skill-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="skill-card-name">${p.name}</div>
+          <span style="font-size:.68rem;color:var(--muted)">${totalObs} obs</span>
+        </div>
+        <div class="skill-rows">
+          ${SB_SKILLS.map(skill=>{
+            const r=skillRating(p.id,skill);
+            const lbl=skillLabel(r);
+            const trend=skillTrend(p.id,skill);
+            const cnt=feedbackLog.filter(e=>e.playerId===p.id&&e.skill===skill).length;
+            return `<div class="skill-row-item">
+              <span class="skill-row-label">${SB_SKILL_EMOJI[skill]} ${skill}</span>
+              <div class="skill-row-right">
+                ${cnt?`<span class="obs-count">${cnt}×</span>`:''}
+                ${trend?`<span class="${trend==='↑'?'trend-up':trend==='↓'?'trend-dn':'trend-eq'}">${trend}</span>`:''}
+                <span class="rating-badge ${lbl||'none'}">${lbl||'—'}</span>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderFbLog(){
+  if(!feedbackLog.length) return `<div class="empty"><div class="empty-icon">📋</div><h3>No observations yet</h3><p>Use the form above to log your first observation.</p></div>`;
+  const relTime=ts=>{
+    const m=Math.floor((Date.now()-ts)/60000);
+    if(m<1) return 'just now';
+    if(m<60) return `${m}m ago`;
+    const h=Math.floor(m/60);
+    if(h<24) return `${h}h ago`;
+    const d=Math.floor(h/24);
+    if(d<7) return `${d}d ago`;
+    return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  };
+  return `<div>${feedbackLog.map(e=>`
+    <div class="log-entry">
+      <span class="log-ts">${relTime(e.ts)}</span>
+      <span class="log-player">${pl(e.playerId)?.name||e.playerId}</span>
+      <span class="log-skill">${SB_SKILL_EMOJI[e.skill]||''} ${e.skill}</span>
+      <span class="rating-badge ${e.rating}">${e.rating}</span>
+      <span class="log-note">${e.note||''}</span>
+      <button class="log-del" onclick="deleteLogEntry('${e.id}')" title="Delete">×</button>
+    </div>`).join('')}</div>`;
+}
+
+function renderFbBatting(){
+  const scored=S.players.map(p=>({p,score:battingScore(p.id)})).sort((a,b)=>{
+    if(a.score!==null&&b.score!==null) return b.score-a.score;
+    if(a.score!==null) return -1;
+    if(b.score!==null) return 1;
+    return (a.p.hittingRank||99)-(b.p.hittingRank||99);
+  });
+  const maxScore=scored.reduce((m,x)=>x.score!==null?Math.max(m,x.score):m,1);
+  const hasAny=scored.some(x=>x.score!==null);
+  return `
+    <div style="margin-bottom:10px;font-size:.8rem;color:var(--muted)">
+      ${hasAny
+        ? '📊 Recommended order based on Hitting, Baserunning, Game IQ, and Bunting observations. Drag in the Lineup tab to finalize.'
+        : '⚠️ No observations logged yet. Order below uses manual hitting ranks. Log observations to get data-driven recommendations.'}
+    </div>
+    ${scored.map((x,i)=>{
+      const barW=x.score!==null?Math.round((x.score/4)*100):0;
+      const chips=Object.entries(BAT_WEIGHTS).map(([skill])=>{
+        const r=skillRating(x.p.id,skill);
+        const lbl=skillLabel(r);
+        if(!lbl) return '';
+        return `<span class="skill-mini rating-badge ${lbl}">${SB_SKILL_EMOJI[skill]}${lbl}</span>`;
+      }).filter(Boolean).join('');
+      return `<div class="bat-rec-row">
+        <span class="bat-rec-num">${i+1}</span>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="bat-rec-name">${x.p.name}</span>
+            <div class="skill-chips">${chips}</div>
+          </div>
+          ${x.score!==null?`<div style="margin-top:3px;display:flex;align-items:center;gap:6px">
+            <div style="flex:1;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden">
+              <div class="bat-score-bar" style="width:${barW}%;height:100%"></div>
+            </div>
+          </div>`:''}
+        </div>
+        <span class="bat-score-val">${x.score!==null?x.score.toFixed(2)+'/4.0':'manual rank #'+(x.p.hittingRank||'?')}</span>
+      </div>`;
+    }).join('')}`;
+}
+
+function deleteLogEntry(id){
+  feedbackLog=feedbackLog.filter(e=>e.id!==id);
+  saveFbLog(); renderFbSubTab();
+}
+
+function printLineup(){ window.print(); }
+
+// ── Style ID constants for exportGameCard ──
+const _XS={T:1,SUB:2,SEC:3,CH:4,BW:5,BA:6,BBW:7,BBA:8,MW:9,MA:10,NW:11,NA:12,AH:13,AN:14};
+
+function exportGameCard(){
+  const g=cur();
+  if(!g){ alert('Please select a game first.'); return; }
+  const {T,SUB,SEC,CH,BW,BA,BBW,BBA,MW,MA,NW,NA,AH,AN}=_XS;
+  const opp=g.opponent||'TBD';
+  const dateS=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}):'TBD';
+  const ha=g.homeAway==='home'?'Home':'Away';
+
+  const rows=[]; const merges=[];
+  const C=(v,s,n)=>({v:v==null?'':v,s:s||0,n:!!n});
+  const R=(...cells)=>{rows.push(cells);return rows.length-1;};
+  const M=(r1,c1,r2,c2)=>merges.push({r1,c1,r2,c2});
+  const NC=11; const B=(s)=>C('',s);
+
+  // Title
+  let r=R(C('ELL Coast Monsters — Game Card',T),...Array(NC-1).fill(B(T))); M(r,0,r,NC-1);
+  r=R(C(`vs ${opp}  ·  ${dateS}  ·  ${ha}  ·  ${g.innings} Innings`,SUB),...Array(NC-1).fill(B(SUB))); M(r,0,r,NC-1);
+  R();
+
+  // Batting order
+  r=R(C('BATTING ORDER',SEC),B(SEC),B(SEC),B(SEC)); M(r,0,r,3);
+  R(C('#',CH),C('Player',CH),C('Notes (for coaches)',CH));
+  const active=g.battingOrder.filter(id=>!isFullyAbsent(g,id));
+  active.forEach((id,i)=>{
+    const p=pl(id),alt=i%2===0;
+    const note=isPartialGame(g,id)?`Available: inning(s) ${availableInningsList(g,id).join(', ')}`:'';
+    R(C(i+1,alt?NW:NA,true),C(p?(p.num?`#${p.num} ${p.name}`:p.name):id,alt?BBW:BBA),C(note,alt?MW:MA));
+  });
+  const absent=S.players.filter(p=>isFullyAbsent(g,p.id)&&g.battingOrder.includes(p.id));
+  if(absent.length){
+    R(); r=R(C('ABSENT',AH),B(AH)); M(r,0,r,1);
+    absent.forEach(p=>R(B(AN),C(p.num?`#${p.num} ${p.name}`:p.name,AN)));
+  }
+  R();R();
+
+  // Fielding plan
+  r=R(C('FIELDING PLAN',SEC),...Array(NC-1).fill(B(SEC))); M(r,0,r,NC-1);
+  R(C('Inning',CH),C('P',CH),C('C',CH),C('1B',CH),C('2B',CH),C('3B',CH),C('SS',CH),C('LF',CH),C('CF',CH),C('RF',CH),C('Bench / Out',CH));
+  for(let i=1;i<=g.innings;i++){
+    const plan=g.fieldingPlan[i]||{};
+    const bench=benchFor(g,i).map(id=>{const bp=pl(id);return bp?(bp.num?`#${bp.num} ${bp.name}`:bp.name):id;}).join(', ');
+    const unavail=S.players.filter(p=>!isAvailable(g,p.id,i)&&!isFullyAbsent(g,p.id)).map(p=>p.num?`#${p.num} ${p.name}`:p.name);
+    const bStr=bench+(unavail.length?(bench?'  |  Out: ':'Out: ')+unavail.join(', '):'');
+    const alt=i%2===1;
+    R(C(`Inning ${i}`,alt?BBW:BBA),...POS.map(pos=>{const pid=plan[pos];const fp=pid?pl(pid):null;return C(fp?(fp.num?`#${fp.num} ${fp.name}`:fp.name):'',alt?BW:BA);}),C(bStr,alt?MW:MA));
+  }
+
+  _xlsxDownload(rows,merges,{0:28,1:22},[8,26,20,20,20,20,20,20,20,20,58],
+    `Monsters-vs-${opp.replace(/[^a-zA-Z0-9]/g,'-')}-${g.date||'TBD'}.xlsx`,'Game Card');
+}
+
+function _xlsxDownload(rows,merges,rowHts,colW,filename,sheetName){
+  const te=new TextEncoder();
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const col=n=>n<26?String.fromCharCode(65+n):String.fromCharCode(64+Math.floor(n/26))+String.fromCharCode(65+n%26);
+
+  // Shared strings
+  const ss=[],sm={};
+  const si=v=>{const k=String(v);if(sm[k]===undefined){sm[k]=ss.length;ss.push(k);}return sm[k];};
+
+  // Sheet XML
+  let sx=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`;
+  if(colW?.length){sx+='<cols>';colW.forEach((w,i)=>sx+=`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`);sx+='</cols>';}
+  sx+='<sheetData>';
+  rows.forEach((row,ri)=>{
+    if(!row?.length){sx+=`<row r="${ri+1}"/>`;return;}
+    const ht=rowHts?.[ri];
+    sx+=`<row r="${ri+1}"${ht?` ht="${ht}" customHeight="1"`:''}>`;
+    row.forEach((c,ci)=>{
+      if(!c)return;
+      const addr=`${col(ci)}${ri+1}`,s=c.s||0;
+      if(c.n&&c.v!=='')sx+=`<c r="${addr}" s="${s}"><v>${c.v}</v></c>`;
+      else if(c.v!==''&&c.v!=null)sx+=`<c r="${addr}" t="s" s="${s}"><v>${si(c.v)}</v></c>`;
+      else sx+=`<c r="${addr}" s="${s}"/>`;
+    });
+    sx+='</row>';
+  });
+  sx+='</sheetData>';
+  if(merges?.length){sx+='<mergeCells>';merges.forEach(m=>sx+=`<mergeCell ref="${col(m.c1)}${m.r1+1}:${col(m.c2)}${m.r2+1}"/>`);sx+='</mergeCells>';}
+  sx+='</worksheet>';
+
+  const ssXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${ss.length}" uniqueCount="${ss.length}">${ss.map(s=>`<si><t xml:space="preserve">${esc(s)}</t></si>`).join('')}</sst>`;
+
+  const files={
+    '[Content_Types].xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/></Types>`,
+    '_rels/.rels':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+    'xl/workbook.xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${esc(sheetName||'Sheet1')}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+    'xl/_rels/workbook.xml.rels':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/></Relationships>`,
+    'xl/worksheets/sheet1.xml':sx,
+    'xl/sharedStrings.xml':ssXml,
+    'xl/styles.xml':_xlsxStyles(),
+  };
+
+  const blob=_buildZip(files,te);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function _xlsxStyles(){
+  // xf indexes 0-14: see _XS constants
+  // fonts: 0=normal 1=bold 2=pink-bold-15pt 3=white-bold 4=black-bold 5=gray-italic 6=gray-normal
+  // fills: 0=none 1=gray125 2=black 3=darkgray 4=pink 5=offwhite 6=lightgray
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="7"><font><sz val="10"/><name val="Arial"/><color rgb="FF1F2937"/></font><font><b/><sz val="10"/><name val="Arial"/><color rgb="FF1F2937"/></font><font><b/><sz val="15"/><name val="Arial"/><color rgb="FFEC4899"/></font><font><b/><sz val="10"/><name val="Arial"/><color rgb="FFFFFFFF"/></font><font><b/><sz val="10"/><name val="Arial"/><color rgb="FF1A1A1A"/></font><font><i/><sz val="10"/><name val="Arial"/><color rgb="FF6B7280"/></font><font><sz val="10"/><name val="Arial"/><color rgb="FF9CA3AF"/></font></fonts><fills count="7"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1A1A1A"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2D2D2D"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEC4899"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF0F4F8"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF9FAFB"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="15"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center" indent="1"/></xf><xf numFmtId="0" fontId="4" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="5" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="6" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center" indent="1"/></xf><xf numFmtId="0" fontId="6" fillId="6" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf></cellXfs></styleSheet>`;
+}
+
+function _buildZip(files,te){
+  // ZIP with STORE method (no compression) — pure JS, no deps
+  const u16=n=>[n&0xFF,(n>>8)&0xFF];
+  const u32=n=>[n&0xFF,(n>>8)&0xFF,(n>>16)&0xFF,(n>>24)&0xFF];
+  function crc32(d){
+    const t=new Uint32Array(256);
+    for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=(c&1)?0xEDB88320^(c>>>1):c>>>1;t[i]=c;}
+    let c=0xFFFFFFFF;for(const b of d)c=t[(c^b)&0xFF]^(c>>>8);return(c^0xFFFFFFFF)>>>0;
+  }
+  const lParts=[],cdParts=[];let off=0;
+  const entries=Object.entries(files);
+  entries.forEach(([name,content])=>{
+    const nb=te.encode(name),db=te.encode(content);
+    const crc=crc32(db),sz=db.length;
+    const lh=new Uint8Array([0x50,0x4B,0x03,0x04,...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(sz),...u32(sz),...u16(nb.length),...u16(0),...nb]);
+    lParts.push(lh,db);
+    cdParts.push(new Uint8Array([0x50,0x4B,0x01,0x02,...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(sz),...u32(sz),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off),...nb]));
+    off+=lh.length+sz;
+  });
+  const cdSz=cdParts.reduce((s,p)=>s+p.length,0);
+  const eocd=new Uint8Array([0x50,0x4B,0x05,0x06,...u16(0),...u16(0),...u16(entries.length),...u16(entries.length),...u32(cdSz),...u32(off),...u16(0)]);
+  const all=[...lParts,...cdParts,eocd];
+  const tot=all.reduce((s,p)=>s+p.length,0);
+  const out=new Uint8Array(tot);let pos=0;
+  all.forEach(p=>{out.set(p,pos);pos+=p.length;});
+  return new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+
+function exportData(){
+  const data={
+    version:1,
+    exported:new Date().toISOString(),
+    players:S.players,
+    games:S.games,
+    curGameId:S.curGameId,
+    feedbackLog:feedbackLog
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`monsters-lineup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(){
+  const input=document.createElement('input');
+  input.type='file'; input.accept='.json';
+  input.onchange=e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        if(!data.players||!data.games) throw new Error('Missing players or games.');
+        const exportedOn=data.exported?new Date(data.exported).toLocaleString():'unknown date';
+        if(!confirm(`Import backup from ${exportedOn}?\n\nThis will replace all current data on this machine.`)) return;
+        S.players=data.players;
+        S.games=data.games;
+        S.curGameId=data.curGameId||null;
+        feedbackLog=data.feedbackLog||[];
+        save(); saveFbLog(); renderAll();
+        alert('✅ Import successful!');
+      }catch(err){
+        alert('❌ Could not read backup file:\n'+err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+/* ═══════════════════════════════════════════
+   SUPABASE AUTH & SYNC
+═══════════════════════════════════════════ */
+const SB_URL='https://egigneadnkiqkiohraoi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnaWduZWFkbmtpcWtpb2hyYW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Mzg0NzMsImV4cCI6MjA5MDQxNDQ3M30.RI7NozPdZH5FoovoRxW1bTcBtIDE-yqI0StagOlyaVY';
+
+function sbSession(){ const s=localStorage.getItem('m_sb_sess'); return s?JSON.parse(s):null; }
+function sbSaveSession(d){ localStorage.setItem('m_sb_sess',JSON.stringify({access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+(d.expires_in||3600)*1000,user_id:d.user?.id,email:d.user?.email||''})); }
+function sbClearSession(){ localStorage.removeItem('m_sb_sess'); }
+
+async function sbToken(){
+  const s=sbSession(); if(!s) return null;
+  if(Date.now()<s.expires_at-60000) return s.access_token;
+  try{
+    const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({refresh_token:s.refresh_token})});
+    if(!r.ok){sbClearSession();return null;}
+    const d=await r.json(); sbSaveSession(d); return d.access_token;
+  }catch{sbClearSession();return null;}
+}
+
+async function sbSignIn(email,password){
+  const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({email,password})});
+  const d=await r.json(); if(!r.ok) throw new Error(d.error_description||d.msg||'Sign-in failed');
+  sbSaveSession(d); return d;
+}
+
+async function sbSignUp(email,password){
+  const r=await fetch(`${SB_URL}/auth/v1/signup`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({email,password})});
+  const d=await r.json(); if(!r.ok) throw new Error(d.error_description||d.msg||'Sign-up failed');
+  return sbSignIn(email,password);
+}
+
+async function sbPull(){
+  const token=await sbToken(); if(!token) return false;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/lineup_state?select=*`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${token}`}});
+    if(!r.ok) return false;
+    const rows=await r.json(); if(!rows.length) return false;
+    const d=rows[0];
+    if(d.players){S.players=d.players;localStorage.setItem('m_players',JSON.stringify(d.players));}
+    if(d.games){S.games=d.games;localStorage.setItem('m_games',JSON.stringify(d.games));}
+    S.curGameId=d.cur_game_id||null; localStorage.setItem('m_cur',S.curGameId||'');
+    if(d.feedback_log){feedbackLog=d.feedback_log;localStorage.setItem('m_fblog',JSON.stringify(d.feedback_log));}
+    return true;
+  }catch{return false;}
+}
+
+let _pushTimer=null;
+async function sbPush(){
+  // Debounce rapid saves — only push after 800ms quiet
+  clearTimeout(_pushTimer);
+  _pushTimer=setTimeout(async()=>{
+    const token=await sbToken(); if(!token){setSyncStatus('offline');return;}
+    const s=sbSession(); if(!s) return;
+    setSyncStatus('syncing');
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/lineup_state`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${token}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:s.user_id,players:S.players,games:S.games,cur_game_id:S.curGameId,feedback_log:feedbackLog,updated_at:new Date().toISOString()})});
+      setSyncStatus(r.ok?'synced':'error');
+    }catch{setSyncStatus('error');}
+  },800);
+}
+
+function setSyncStatus(state){
+  const el=document.getElementById('sync-status'); if(!el) return;
+  const email=sbSession()?.email||'';
+  const shortEmail=email.split('@')[0];
+  const out=btn=>`<button class="sync-signout" onclick="doSignOut()">sign out</button>`;
+  if(state==='synced') el.innerHTML=`<span style="color:#86efac">✓ synced</span><span style="color:rgba(255,255,255,.35);margin-left:4px">${shortEmail}</span>${out()}`;
+  else if(state==='syncing') el.innerHTML=`<span style="color:#fcd34d">⟳ syncing…</span>`;
+  else if(state==='offline') el.innerHTML=`<span style="color:#fca5a5">● local only</span><button class="sync-signout" onclick="showLogin()">sign in</button>`;
+  else if(state==='error') el.innerHTML=`<span style="color:#fca5a5">⚠ sync failed</span>${out()}`;
+}
+
+function showLogin(){ document.getElementById('login-overlay').classList.add('open'); }
+function hideLogin(){ document.getElementById('login-overlay').classList.remove('open'); }
+
+async function doSignIn(){
+  const email=document.getElementById('login-email').value.trim();
+  const pw=document.getElementById('login-password').value;
+  const errEl=document.getElementById('login-err');
+  const btn=document.getElementById('login-btn');
+  if(!email||!pw){errEl.textContent='Please enter email and password.';errEl.style.display='block';return;}
+  errEl.style.display='none'; btn.disabled=true; btn.textContent='Signing in…';
+  try{
+    await sbSignIn(email,pw);
+    hideLogin(); setSyncStatus('syncing');
+    const pulled=await sbPull();
+    if(pulled){runMigration();}
+    setSyncStatus('synced'); renderAll();
+  }catch(e){errEl.textContent=e.message;errEl.style.display='block';}
+  finally{btn.disabled=false;btn.textContent='Sign In';}
+}
+
+async function doSignUp(){
+  const email=document.getElementById('login-email').value.trim();
+  const pw=document.getElementById('login-password').value;
+  const errEl=document.getElementById('login-err');
+  const btn=document.getElementById('signup-btn');
+  if(!email||!pw){errEl.textContent='Please enter email and password first.';errEl.style.display='block';return;}
+  if(pw.length<6){errEl.textContent='Password must be at least 6 characters.';errEl.style.display='block';return;}
+  errEl.style.display='none'; btn.disabled=true; btn.textContent='Creating…';
+  try{
+    await sbSignUp(email,pw);
+    hideLogin(); setSyncStatus('syncing');
+    await sbPush(); // push existing local data up immediately
+    setSyncStatus('synced'); renderAll();
+  }catch(e){errEl.textContent=e.message;errEl.style.display='block';}
+  finally{btn.disabled=false;btn.textContent='Create Account';}
+}
+
+async function doSignOut(){
+  if(!confirm('Sign out? The app will still work offline using locally saved data.')) return;
+  sbClearSession(); setSyncStatus('offline'); showLogin();
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+async function init(){
+  load();        // instant load from localStorage
+  renderAll();   // show app immediately — no waiting for network
+  // Register service worker for offline/installable PWA
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  // Auth check
+  const token=await sbToken();
+  if(!token){ setSyncStatus('offline'); showLogin(); return; }
+  // Pull latest from Supabase (source of truth)
+  setSyncStatus('syncing');
+  const pulled=await sbPull();
+  if(pulled){ runMigration(); renderAll(); }
+  setSyncStatus('synced');
+}
+init();
+</script>
+
+<!-- ── LOGIN OVERLAY ── -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="em">🥎</div>
+      <h2>ELL Coast Monsters</h2>
+      <p>Sign in to sync your lineup across devices</p>
+    </div>
+    <div class="fg">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doSignIn()">
+    </div>
+    <div class="fg">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignIn()">
+    </div>
+    <div class="login-err" id="login-err"></div>
+    <button class="btn btn-primary w-full" id="login-btn" onclick="doSignIn()">Sign In</button>
+    <div class="login-divider">— or —</div>
+    <button class="btn btn-outline w-full" id="signup-btn" onclick="doSignUp()">Create Account</button>
+    <p style="font-size:.7rem;color:var(--muted);text-align:center;margin-top:14px">
+      First time? Create an account. Already have one? Sign in.<br>
+      Your data is saved locally even without an account.
+    </p>
+  </div>
+</div>
+
+</body>
+</html>

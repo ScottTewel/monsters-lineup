@@ -1,0 +1,19 @@
+{
+  "name": "ELL Coast Monsters — Lineup Manager",
+  "short_name": "Monsters Lineup",
+  "description": "Softball lineup manager for ELL Coast Monsters, District 9 Coast Division",
+  "start_url": "/monsters-lineup/",
+  "scope": "/monsters-lineup/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f0f4f8",
+  "theme_color": "#1a1a1a",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
