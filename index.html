@@ -1819,19 +1819,21 @@ async function sbPull(){
   }catch{return false;}
 }
 
+async function sbPushNow(){
+  const token=await sbToken(); if(!token){setSyncStatus('offline');return;}
+  const s=sbSession(); if(!s) return;
+  setSyncStatus('syncing');
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/lineup_state`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${token}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:s.user_id,players:S.players,games:S.games,cur_game_id:S.curGameId,feedback_log:feedbackLog,updated_at:new Date().toISOString()})});
+    setSyncStatus(r.ok?'synced':'error');
+  }catch{setSyncStatus('error');}
+}
+
 let _pushTimer=null;
 async function sbPush(){
   // Debounce rapid saves — only push after 800ms quiet
   clearTimeout(_pushTimer);
-  _pushTimer=setTimeout(async()=>{
-    const token=await sbToken(); if(!token){setSyncStatus('offline');return;}
-    const s=sbSession(); if(!s) return;
-    setSyncStatus('syncing');
-    try{
-      const r=await fetch(`${SB_URL}/rest/v1/lineup_state`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${token}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:s.user_id,players:S.players,games:S.games,cur_game_id:S.curGameId,feedback_log:feedbackLog,updated_at:new Date().toISOString()})});
-      setSyncStatus(r.ok?'synced':'error');
-    }catch{setSyncStatus('error');}
-  },800);
+  _pushTimer=setTimeout(()=>sbPushNow(),800);
 }
 
 function setSyncStatus(state){
@@ -1876,7 +1878,7 @@ async function doSignUp(){
   try{
     await sbSignUp(email,pw);
     hideLogin(); setSyncStatus('syncing');
-    await sbPush(); // push existing local data up immediately
+    await sbPushNow(); // push existing local data up immediately
     setSyncStatus('synced'); renderAll();
   }catch(e){errEl.textContent=e.message;errEl.style.display='block';}
   finally{btn.disabled=false;btn.textContent='Create Account';}
@@ -1902,6 +1904,7 @@ async function init(){
   setSyncStatus('syncing');
   const pulled=await sbPull();
   if(pulled){ runMigration(); renderAll(); }
+  else if(S.games.length>0){ await sbPushNow(); } // bootstrap: local data exists but nothing in Supabase yet — push it up
   setSyncStatus('synced');
 }
 init();
