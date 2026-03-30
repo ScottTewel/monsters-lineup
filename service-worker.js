@@ -1,5 +1,5 @@
 // ELL Coast Monsters — Lineup Manager Service Worker
-const CACHE = 'monsters-lineup-v1';
+const CACHE = 'monsters-lineup-v2';
 const ASSETS = [
   '/monsters-lineup/',
   '/monsters-lineup/index.html',
