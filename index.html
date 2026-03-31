@@ -113,6 +113,9 @@ table.ig tr:last-child td:last-child{border-radius:0 0 var(--radius) 0}
 
 .pc{min-width:82px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;border:2px solid transparent;padding:3px 5px;text-align:center;transition:all .12s;flex-direction:column}
 .pc:hover{border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,26,26,.12)}
+.pc[draggable="true"]{cursor:grab}.pc[draggable="true"]:active{cursor:grabbing}
+.pc.fp-dragging{opacity:.35}
+.fp-td-hover>.pc{outline:2px dashed var(--gold);outline-offset:-2px;background:rgba(236,72,153,.1)!important}
 .pc.empty{background:#f3f4f6;color:var(--muted);font-size:.72rem;font-style:italic}
 .pc.sk-ideal{background:var(--ideal-bg);color:var(--ideal)}
 .pc.sk-good{background:var(--good-bg);color:var(--good)}
@@ -351,6 +354,15 @@ table.ig tr:last-child td:last-child{border-radius:0 0 var(--radius) 0}
           <div class="av-wrap" id="av-grid"></div>
         </div>
 
+        <div class="fg" id="copy-game-wrap" style="display:none">
+          <label>📋 Copy from prior game</label>
+          <div style="display:flex;gap:6px">
+            <select id="copy-game-sel" style="flex:1;padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:.83rem;background:#fff"></select>
+            <button class="btn btn-outline btn-sm" onclick="copyFromGame()">Copy</button>
+          </div>
+          <p style="font-size:.68rem;color:var(--muted);margin-top:3px;line-height:1.4">Copies defensive positions + player availability from the selected game.</p>
+        </div>
+
         <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
           <button class="btn btn-teal btn-sm" onclick="exportGameCard()">📊 Download Game Card</button>
           <button class="btn btn-outline btn-sm" onclick="printLineup()">🖨 Print</button>
@@ -524,6 +536,7 @@ let logState    = {playerId:null,skill:null,rating:null,note:''};
 let fbSubTab    = 'players';
 let pickerCtx   = null;
 let skEditId    = null;
+let fpDragCtx   = null;
 
 /* ═══════════════════════════════════════════
    PERSISTENCE
@@ -1025,6 +1038,33 @@ function renderGameForm(){
   document.getElementById('gf-ha').value=g.homeAway||'home';
   document.getElementById('gf-inn').value=g.innings||5;
   renderAvailGrid(g);
+  renderCopyGameSelect(g);
+}
+
+function renderCopyGameSelect(g){
+  const wrap=document.getElementById('copy-game-wrap');
+  if(!wrap||!g) return;
+  const others=S.games.filter(x=>x.id!==g.id);
+  if(!others.length){wrap.style.display='none';return;}
+  wrap.style.display='';
+  document.getElementById('copy-game-sel').innerHTML=
+    '<option value="">Select a game…</option>'+
+    others.map(x=>{
+      const d=x.date?new Date(x.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):'TBD';
+      return `<option value="${x.id}">vs ${x.opponent||'TBD'} (${d})</option>`;
+    }).join('');
+}
+
+function copyFromGame(){
+  const g=cur(); if(!g) return;
+  const srcId=document.getElementById('copy-game-sel').value;
+  if(!srcId){alert('Select a game to copy from.');return;}
+  const src=S.games.find(x=>x.id===srcId);
+  if(!src) return;
+  if(!confirm(`Copy fielding plan + player availability from vs ${src.opponent||'TBD'}?\nThis will overwrite the current game's assignments.`)) return;
+  g.fieldingPlan=JSON.parse(JSON.stringify(src.fieldingPlan||{}));
+  g.playerInnings=JSON.parse(JSON.stringify(src.playerInnings||{}));
+  save(); renderLineup(); renderVal(); renderGameForm();
 }
 
 function renderAvailGrid(g){
@@ -1169,7 +1209,9 @@ function buildGrid(g){
       const skCls=unavailWarning?'pc-unavail':skill?`sk-${skill}`:'empty';
       const nameT=player?player.name:'—';
       const skT=unavailWarning?'⛔ OUT':skill?SK_LABEL[skill].split(' ').slice(1).join(' '):'';
-      h+=`<td><div class="pc ${skCls}" onclick="openPicker(${i},'${pos}')">
+      const canDrag=!!(player&&!unavailWarning);
+      h+=`<td ondragover="fpDragOver(event)" ondrop="fpDrop(event,${i},'${pos}')" ondragenter="fpDragEnter(event)" ondragleave="fpDragLeave(event)">
+        <div class="pc ${skCls}"${canDrag?` draggable="true" ondragstart="fpDragStart(event,${i},'${pos}')" ondragend="fpDragEnd(event)"`:''}  onclick="openPicker(${i},'${pos}')">
         <div class="pc-name">${nameT}</div>
         ${player?`<div class="pc-sk">${skT}</div>`:''}
       </div></td>`;
@@ -1274,6 +1316,36 @@ function renderBatOrder(g){
     }
     el.appendChild(div);
   });
+}
+
+/* ═══════════════════════════════════════════
+   FIELDING GRID DRAG AND DROP
+═══════════════════════════════════════════ */
+function fpDragStart(e,inning,pos){
+  fpDragCtx={inning,pos};
+  e.currentTarget.classList.add('fp-dragging');
+  e.dataTransfer.effectAllowed='move';
+}
+function fpDragEnd(e){
+  e.currentTarget.classList.remove('fp-dragging');
+  document.querySelectorAll('.fp-td-hover').forEach(el=>el.classList.remove('fp-td-hover'));
+}
+function fpDragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; }
+function fpDragEnter(e){ e.currentTarget.classList.add('fp-td-hover'); }
+function fpDragLeave(e){ if(!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('fp-td-hover'); }
+function fpDrop(e,inning,pos){
+  e.preventDefault();
+  e.currentTarget.classList.remove('fp-td-hover');
+  if(!fpDragCtx) return;
+  const{inning:srcInn,pos:srcPos}=fpDragCtx; fpDragCtx=null;
+  if(srcInn!==inning||srcPos===pos) return;
+  const g=cur(); if(!g) return;
+  if(!g.fieldingPlan[inning]) g.fieldingPlan[inning]={};
+  const srcPid=g.fieldingPlan[inning][srcPos];
+  if(!srcPid) return;
+  g.fieldingPlan[inning][pos]=srcPid;
+  g.fieldingPlan[inning][srcPos]=null;
+  save(); renderLineup(); renderVal();
 }
 
 /* ═══════════════════════════════════════════
