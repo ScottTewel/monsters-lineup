@@ -1605,7 +1605,8 @@ function exportGameCard(){
   const C=(v,s,n)=>({v:v==null?'':v,s:s||0,n:!!n});
   const R=(...cells)=>{rows.push(cells);return rows.length-1;};
   const M=(r1,c1,r2,c2)=>merges.push({r1,c1,r2,c2});
-  const NC=11; const B=(s)=>C('',s);
+  const B=(s)=>C('',s);
+  const NC=2+g.innings; // # + Player + one column per inning
 
   // Title
   let r=R(C('ELL Coast Monsters — Game Card',T),...Array(NC-1).fill(B(T))); M(r,0,r,NC-1);
@@ -1613,7 +1614,7 @@ function exportGameCard(){
   R();
 
   // Batting order
-  r=R(C('BATTING ORDER',SEC),B(SEC),B(SEC),B(SEC)); M(r,0,r,3);
+  r=R(C('BATTING ORDER',SEC),...Array(NC-1).fill(B(SEC))); M(r,0,r,NC-1);
   R(C('#',CH),C('Player',CH),C('Notes (for coaches)',CH));
   const active=g.battingOrder.filter(id=>!isFullyAbsent(g,id));
   active.forEach((id,i)=>{
@@ -1628,19 +1629,33 @@ function exportGameCard(){
   }
   R();R();
 
-  // Fielding plan
+  // Fielding plan — rows=players in batting order, columns=innings
   r=R(C('FIELDING PLAN',SEC),...Array(NC-1).fill(B(SEC))); M(r,0,r,NC-1);
-  R(C('Inning',CH),C('P',CH),C('C',CH),C('1B',CH),C('2B',CH),C('3B',CH),C('SS',CH),C('LF',CH),C('CF',CH),C('RF',CH),C('Bench / Out',CH));
-  for(let i=1;i<=g.innings;i++){
-    const plan=g.fieldingPlan[i]||{};
-    const bench=benchFor(g,i).map(id=>{const bp=pl(id);return bp?(bp.num?`#${bp.num} ${bp.name}`:bp.name):id;}).join(', ');
-    const unavail=S.players.filter(p=>!isAvailable(g,p.id,i)&&!isFullyAbsent(g,p.id)).map(p=>p.num?`#${p.num} ${p.name}`:p.name);
-    const bStr=bench+(unavail.length?(bench?'  |  Out: ':'Out: ')+unavail.join(', '):'');
-    const alt=i%2===1;
-    R(C(`Inning ${i}`,alt?BBW:BBA),...POS.map(pos=>{const pid=plan[pos];const fp=pid?pl(pid):null;return C(fp?(fp.num?`#${fp.num} ${fp.name}`:fp.name):'',alt?BW:BA);}),C(bStr,alt?MW:MA));
+  const hdr=[C('#',CH),C('Player',CH)];
+  for(let i=1;i<=g.innings;i++) hdr.push(C(`Inn ${i}`,CH));
+  R(...hdr);
+  active.forEach((id,idx)=>{
+    const p=pl(id),alt=idx%2===0;
+    const nameStr=p?(p.num?`#${p.num} ${p.name}`:p.name):id;
+    const cells=[C(idx+1,alt?NW:NA,true),C(nameStr,alt?BBW:BBA)];
+    for(let i=1;i<=g.innings;i++){
+      const plan=g.fieldingPlan[i]||{};
+      let pos=null;
+      for(const [position,pid] of Object.entries(plan)){ if(pid===id){pos=position;break;} }
+      const val=!isAvailable(g,id,i)?'Out':pos||'Bench';
+      cells.push(C(val,alt?NW:NA));
+    }
+    R(...cells);
+  });
+  if(absent.length){
+    absent.forEach(p=>{
+      const cells=[B(AN),C(p.num?`#${p.num} ${p.name}`:p.name,AN)];
+      for(let i=1;i<=g.innings;i++) cells.push(C('Out',AN));
+      R(...cells);
+    });
   }
 
-  _xlsxDownload(rows,merges,{0:28,1:22},[8,26,20,20,20,20,20,20,20,20,58],
+  _xlsxDownload(rows,merges,{0:28,1:22},[6,28,...Array(g.innings).fill(12)],
     `Monsters-vs-${opp.replace(/[^a-zA-Z0-9]/g,'-')}-${g.date||'TBD'}.xlsx`,'Game Card');
 }
 
