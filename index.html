@@ -86,6 +86,11 @@ nav button.active{color:var(--navy);background:var(--gold);border-color:var(--go
 .val-item:last-child{border-bottom:none}
 .val-ok{color:#166534}.val-warn{color:#92400e}.val-err{color:#991b1b}
 .val-ok::before{content:'✅ '}.val-warn::before{content:'⚠️ '}.val-err::before{content:'❌ '}
+.rec-section{margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
+.rec-header{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.rec-item{font-size:.74rem;color:#0f766e;line-height:1.5;padding:3px 0;border-bottom:1px solid var(--border)}
+.rec-item:last-child{border-bottom:none}
+.rec-item::before{content:'→ ';font-weight:700}
 
 .main-content{display:flex;flex-direction:column;gap:14px;min-width:0}
 
@@ -322,6 +327,11 @@ table.ig tr:last-child td:last-child{border-radius:0 0 var(--radius) 0}
         <button class="btn btn-gold w-full" style="margin-top:9px" onclick="newGame()">+ New Game</button>
       </div>
 
+      <div class="card" style="position:sticky;top:68px">
+        <div class="card-h">✅ Rule Check</div>
+        <div id="val-list"><p style="font-size:.8rem;color:var(--muted)">Select a game.</p></div>
+      </div>
+
       <div class="card" id="game-form-card" style="display:none">
         <div class="card-h">Game Details</div>
         <div class="fg"><label>Date</label><input type="date" id="gf-date" onchange="gfUpdate('date',this.value)"></div>
@@ -368,11 +378,6 @@ table.ig tr:last-child td:last-child{border-radius:0 0 var(--radius) 0}
           <button class="btn btn-outline btn-sm" onclick="printLineup()">🖨 Print</button>
           <button class="btn btn-danger btn-sm" onclick="deleteGame()">🗑 Delete</button>
         </div>
-      </div>
-
-      <div class="card" style="position:sticky;top:68px">
-        <div class="card-h">✅ Rule Check</div>
-        <div id="val-list"><p style="font-size:.8rem;color:var(--muted)">Select a game.</p></div>
       </div>
 
       <div class="card">
@@ -815,7 +820,7 @@ function doAutoFill(g){
       .sort((a,b)=>{
         if(sitCount[a]!==sitCount[b]) return sitCount[a]-sitCount[b];  // fewer benches first
         const ra=remainingInn(a), rb=remainingInn(b);
-        if(ra!==rb) return rb-ra; // more innings left = bench them first (they can catch up)
+        if(ra!==rb) return ra-rb; // fewer innings left = bench them first (ensures limited-availability players get benched)
         return defScore(a)-defScore(b); // weakest defense bench first
       });
 
@@ -835,6 +840,7 @@ function doAutoFill(g){
 
     // Per-player infield count so far
     const infieldSoFar={};
+
     S.players.forEach(p=>{
       let cnt=0;
       for(let j=1;j<i;j++){
@@ -843,6 +849,30 @@ function doAutoFill(g){
       }
       infieldSoFar[p.id]=cnt;
     });
+
+    // Pre-pass: guarantee infield for last-chance players (no future fielding innings in window 1-5)
+    const INFIELD_NON_P=['C','1B','2B','SS','3B'];
+    if(i<=Math.min(5,inn)){
+      const lastChance=fieldable.filter(id=>{
+        if(assigned.has(id)||infieldSoFar[id]>0) return false;
+        let future=0;
+        for(let j=i+1;j<=Math.min(5,inn);j++)
+          if(isAvailable(g,id,j)&&!(benchPlan[j]||[]).includes(id)) future++;
+        return future===0;
+      });
+      lastChance.sort((a,b)=>{
+        const bA=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[pl(a)?.skills[p]||'avoid']));
+        const bB=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[pl(b)?.skills[p]||'avoid']));
+        return bB-bA;
+      });
+      lastChance.forEach(id=>{
+        if(assigned.has(id)) return;
+        const pos=INFIELD_NON_P
+          .filter(p=>!g.fieldingPlan[i][p])
+          .sort((a,b)=>SK_SCORE[pl(id)?.skills[b]||'avoid']-SK_SCORE[pl(id)?.skills[a]||'avoid'])[0];
+        if(pos){g.fieldingPlan[i][pos]=id;assigned.add(id);}
+      });
+    }
 
     posOrder.forEach(pos=>{
       const avail=fieldable.filter(id=>!assigned.has(id));
@@ -1101,11 +1131,111 @@ function renderAvailGrid(g){
   document.getElementById('av-grid').innerHTML=html;
 }
 
+function buildRecommendations(g){
+  if(!g) return [];
+  const recs=[];
+  const inn=g.innings||6;
+  const fp=g.fieldingPlan||{};
+
+  // Helper: who is fielding where in each inning
+  const posOf=(id,i)=>Object.entries(fp[i]||{}).find(([,pid])=>pid===id)?.[0]||null;
+
+  // Infield innings per player across game
+  const infieldInns=(id)=>{
+    let cnt=0;
+    for(let i=1;i<=inn;i++){const p=posOf(id,i);if(p&&INFIELD.has(p))cnt++;}
+    return cnt;
+  };
+
+  // Count bench sits
+  const sitCt=(id)=>{
+    let cnt=0;
+    for(let i=1;i<=inn;i++){
+      if(!isAvailable(g,id,i)) continue;
+      const assigned=Object.values(fp[i]||{});
+      if(!assigned.includes(id)) cnt++;
+    }
+    return cnt;
+  };
+
+  // A — Infield minimum violations (hard rule): 0 infield innings in first 5
+  S.players.forEach(p=>{
+    if(isFullyAbsent(g,p.id)) return;
+    const maxIF=Math.min(5,inn);
+    let ifCount=0;
+    for(let i=1;i<=maxIF;i++){const pos=posOf(p.id,i);if(pos&&INFIELD.has(pos))ifCount++;}
+    if(ifCount>0) return;
+    // Find innings 1-5 where they're in outfield
+    const ofInnings=[];
+    for(let i=1;i<=maxIF;i++){
+      const pos=posOf(p.id,i);
+      if(pos&&!INFIELD.has(pos)) ofInnings.push({i,pos});
+    }
+    if(!ofInnings.length) return;
+    // Best infield position for this player
+    const bestIF=['C','1B','2B','SS','3B']
+      .filter(p2=>p.skills[p2]!=='avoid')
+      .sort((a,b)=>SK_SCORE[p.skills[b]||'avoid']-SK_SCORE[p.skills[a]||'avoid'])[0]||'1B';
+    const innList=ofInnings.map(x=>x.i).join(' or ');
+    recs.push(`<strong>${p.name}</strong> needs ≥1 infield inning in first ${maxIF}: move to <strong>${bestIF}</strong> in inning ${innList}`);
+  });
+
+  // B — Bench equity violations (hard rule): someone has 0 sits while another has 2+
+  const sits=S.players.map(p=>({p,n:sitCt(p.id)}));
+  const zeroBench=sits.filter(x=>x.n===0&&!isFullyAbsent(g,x.p.id));
+  const overBench=sits.filter(x=>x.n>=2);
+  zeroBench.forEach(({p:unbenched})=>{
+    // Find an inning where they're fielding and an over-benched player could cover
+    for(let i=1;i<=inn;i++){
+      if(!isAvailable(g,unbenched.id,i)) continue;
+      const pos=posOf(unbenched.id,i);
+      if(!pos||pos==='P') continue; // don't pull pitcher
+      // Find an over-benched player who isn't playing this inning and can play pos
+      const cover=overBench.find(({p:ob})=>{
+        if(!isAvailable(g,ob.id,i)) return false;
+        if(posOf(ob.id,i)) return false; // already fielding
+        return ob.skills[pos]!=='avoid';
+      });
+      if(cover){
+        recs.push(`<strong>${unbenched.name}</strong> hasn't sat yet: bench them inning ${i} (currently ${pos}); <strong>${cover.p.name}</strong> can cover ${pos}`);
+        return;
+      }
+    }
+  });
+
+  // C — Infield guideline shortfall (soft): < 2 infield innings average
+  S.players.forEach(p=>{
+    if(isFullyAbsent(g,p.id)) return;
+    const ifCt=infieldInns(p.id);
+    if(ifCt>=2) return;
+    // Find outfield innings they could swap to infield
+    const swapOpts=[];
+    for(let i=1;i<=inn;i++){
+      const pos=posOf(p.id,i);
+      if(!pos||INFIELD.has(pos)) continue;
+      const bestIF=['C','1B','2B','SS','3B']
+        .filter(p2=>p.skills[p2]!=='avoid'&&!fp[i][p2])
+        .sort((a,b)=>SK_SCORE[p.skills[b]||'avoid']-SK_SCORE[p.skills[a]||'avoid'])[0];
+      if(bestIF) swapOpts.push({i,from:pos,to:bestIF});
+    }
+    if(!swapOpts.length) return;
+    const s=swapOpts[0];
+    recs.push(`Guideline: <strong>${p.name}</strong> has ${ifCt} infield inning${ifCt!==1?'s':''} — could move to <strong>${s.to}</strong> in inning ${s.i} (currently ${s.from})`);
+  });
+
+  return recs;
+}
+
 function renderVal(){
   const el=document.getElementById('val-list');
   const g=cur();
   if(!g){el.innerHTML='<p style="font-size:.8rem;color:var(--muted)">Select a game.</p>';return;}
-  el.innerHTML=validate(g).map(r=>`<div class="val-item val-${r.t}">${r.msg}</div>`).join('');
+  let html=validate(g).map(r=>`<div class="val-item val-${r.t}">${r.msg}</div>`).join('');
+  const recs=buildRecommendations(g);
+  if(recs.length){
+    html+=`<div class="rec-section"><div class="rec-header">💡 Suggestions</div>${recs.map(r=>`<div class="rec-item">${r}</div>`).join('')}</div>`;
+  }
+  el.innerHTML=html;
 }
 
 function renderLineup(){
