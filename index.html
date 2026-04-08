@@ -174,6 +174,24 @@ table.ig tr:last-child td:last-child{border-radius:0 0 var(--radius) 0}
 
 .autofill-box{background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:10px 12px;font-size:.78rem;line-height:1.7;color:#1e40af;margin-bottom:8px}
 
+/* ── MID-GAME MODAL ── */
+.mg-section-label{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.mg-inning-btn{width:38px;height:38px;border-radius:8px;border:2px solid var(--border);background:#f9fafb;font-weight:700;font-size:.9rem;cursor:pointer;color:var(--navy);transition:all .15s}
+.mg-inning-btn:hover{background:#eff6ff;border-color:var(--teal)}
+.mg-inning-btn.selected{background:var(--teal);border-color:var(--teal);color:#fff}
+.mg-mode-btn{padding:12px 10px;text-align:center;background:#f9fafb;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:.83rem;color:var(--navy);line-height:1.4;width:100%;transition:all .15s}
+.mg-mode-btn:hover{background:#eff6ff;border-color:var(--teal)}
+.mg-mode-btn.selected{background:#eff6ff;border-color:var(--teal);color:var(--teal)}
+.mg-mode-sub{font-size:.65rem;opacity:.7;margin-top:3px;font-weight:400}
+.mg-pitcher-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.mg-pitcher-row:last-child{border-bottom:none}
+.mg-inn-label{font-size:.75rem;font-weight:700;color:var(--navy);min-width:58px}
+.mg-pitcher-sel{flex:1;font-size:.78rem;padding:4px 6px;border-radius:6px;border:1.5px solid var(--border);background:#fff}
+.mg-pitch-ct{font-size:.7rem;padding:2px 8px;border-radius:10px;background:#f3f4f6;color:var(--muted);white-space:nowrap}
+.mg-pitch-ct.at-limit{background:#fef3c7;color:#92400e}
+.mg-pitch-ct.over-limit{background:#fee2e2;color:#991b1b;font-weight:700}
+.mg-warn-box{background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:8px 10px;font-size:.75rem;color:#991b1b;margin-bottom:10px}
+
 .roster-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;padding:14px}
 .p-card{background:#fff;border-radius:var(--radius);padding:14px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.07)}
 .p-card-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:11px}
@@ -453,6 +471,17 @@ table.ig tr:last-child td:last-child{border-radius:0 0 var(--radius) 0}
   <div class="modal">
     <div class="modal-hd"><h3 id="sk-title">Edit Skills</h3><button class="modal-x" onclick="closeSk()">×</button></div>
     <div id="sk-body"></div>
+  </div>
+</div>
+
+<!-- MID-GAME ADJUSTMENT MODAL -->
+<div class="overlay" id="mg-overlay" onclick="closeMidGame(event)">
+  <div class="modal" style="width:460px">
+    <div class="modal-hd">
+      <h3>🎮 Mid-game Adjustment</h3>
+      <button class="modal-x" onclick="closeMidGame()">×</button>
+    </div>
+    <div id="mg-body"></div>
   </div>
 </div>
 
@@ -905,6 +934,317 @@ function doAutoFill(g){
 }
 
 /* ═══════════════════════════════════════════
+   MID-GAME ADJUSTMENT
+═══════════════════════════════════════════ */
+let mgState={};
+
+function openMidGame(){
+  const g=cur(); if(!g) return;
+  mgState={};
+  renderMgStep1(g);
+  document.getElementById('mg-overlay').classList.add('open');
+}
+
+function closeMidGame(e){
+  if(e&&e.target!==document.getElementById('mg-overlay')) return;
+  document.getElementById('mg-overlay').classList.remove('open');
+}
+
+function renderMgStep1(g){
+  const inn=g.innings;
+  const inningBtns=Array.from({length:inn-1},(_,i)=>i+1)
+    .map(n=>`<button class="mg-inning-btn" id="mg-inn-${n}" onclick="mgSelectInning(${n})">${n}</button>`)
+    .join('');
+  document.getElementById('mg-body').innerHTML=`
+    <div>
+      <div style="margin-bottom:16px">
+        <div class="mg-section-label">WE'VE COMPLETED INNING</div>
+        <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">${inningBtns}</div>
+      </div>
+      <div style="margin-bottom:4px">
+        <div class="mg-section-label">ADJUST REMAINING INNINGS TO BE</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:7px">
+          <button class="mg-mode-btn" id="mg-mode-comp" onclick="mgSelectMode('competitive')">
+            <div style="font-size:1.2rem;margin-bottom:3px">💪</div>
+            <div style="font-weight:700">More Competitive</div>
+            <div class="mg-mode-sub">Best pitchers, strongest defense</div>
+          </button>
+          <button class="mg-mode-btn" id="mg-mode-dev" onclick="mgSelectMode('development')">
+            <div style="font-size:1.2rem;margin-bottom:3px">🌱</div>
+            <div style="font-weight:700">Development</div>
+            <div class="mg-mode-sub">Spread pitching reps, develop players</div>
+          </button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-navy" id="mg-next-btn" onclick="mgStep1Next()" disabled>Next →</button>
+      </div>
+    </div>`;
+}
+
+function mgSelectInning(n){
+  mgState.completedInning=n;
+  document.querySelectorAll('.mg-inning-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById(`mg-inn-${n}`)?.classList.add('selected');
+  mgCheckStep1Ready();
+}
+
+function mgSelectMode(mode){
+  mgState.mode=mode;
+  document.getElementById('mg-mode-comp').classList.toggle('selected',mode==='competitive');
+  document.getElementById('mg-mode-dev').classList.toggle('selected',mode==='development');
+  mgCheckStep1Ready();
+}
+
+function mgCheckStep1Ready(){
+  const btn=document.getElementById('mg-next-btn');
+  if(btn) btn.disabled=!(mgState.completedInning&&mgState.mode);
+}
+
+function mgStep1Next(){
+  const g=cur(); if(!g) return;
+  const fromInning=mgState.completedInning+1;
+  // Seed pitch counts from completed innings
+  const seededPitchCount={};
+  S.players.forEach(p=>seededPitchCount[p.id]=0);
+  for(let i=1;i<fromInning;i++){
+    const pitcher=g.fieldingPlan[i]?.['P'];
+    if(pitcher) seededPitchCount[pitcher]++;
+  }
+  mgState.seededPitchCount=seededPitchCount;
+  mgState.fromInning=fromInning;
+  const recs=buildPitcherRecs(g,fromInning,mgState.mode,seededPitchCount);
+  mgState.recs=recs;
+  renderMgStep2(g,fromInning,recs,seededPitchCount);
+}
+
+function buildPitcherRecs(game,fromInning,mode,seededPitchCount){
+  const inn=game.innings;
+  const workCount={...seededPitchCount};
+  const recs={};
+  const canPitch=S.players.filter(p=>p.skills['P']!=='avoid');
+  let ordered;
+  if(mode==='competitive'){
+    ordered=[...canPitch].sort((a,b)=>SK_SCORE[b.skills['P']||'avoid']-SK_SCORE[a.skills['P']||'avoid']);
+  } else {
+    ordered=[...canPitch].sort((a,b)=>{
+      const ua=workCount[a.id]||0,ub=workCount[b.id]||0;
+      if(ua!==ub) return ua-ub;
+      return SK_SCORE[a.skills['P']||'avoid']-SK_SCORE[b.skills['P']||'avoid'];
+    });
+  }
+  for(let i=fromInning;i<=inn;i++){
+    const avail=activePlayersForInning(game,i).map(p=>p.id);
+    const pitcher=ordered.find(p=>avail.includes(p.id)&&(workCount[p.id]||0)<MAX_PITCH);
+    if(pitcher){
+      recs[i]=pitcher.id;
+      workCount[pitcher.id]=(workCount[pitcher.id]||0)+1;
+    } else {
+      const fb=canPitch.find(p=>avail.includes(p.id)&&(workCount[p.id]||0)<MAX_PITCH);
+      recs[i]=fb?fb.id:avail[0];
+      if(recs[i]) workCount[recs[i]]=(workCount[recs[i]]||0)+1;
+    }
+  }
+  return recs;
+}
+
+function renderMgStep2(game,fromInning,recs,seededPitchCount){
+  const inn=game.innings;
+  const canPitch=S.players.filter(p=>p.skills['P']!=='avoid');
+  const rows=[];
+  for(let i=fromInning;i<=inn;i++){
+    const avail=activePlayersForInning(game,i).map(p=>p.id);
+    const opts=canPitch
+      .filter(p=>avail.includes(p.id))
+      .map(p=>`<option value="${p.id}"${recs[i]===p.id?' selected':''}>${p.name} · ${p.skills['P']}</option>`)
+      .join('');
+    rows.push(`<div class="mg-pitcher-row">
+      <div class="mg-inn-label">Inning ${i}</div>
+      <select class="mg-pitcher-sel" data-inning="${i}" onchange="mgUpdateCounts()">${opts}</select>
+      <span class="mg-pitch-ct" id="mg-ct-${i}"></span>
+    </div>`);
+  }
+  const modeName=mgState.mode==='competitive'?'💪 More Competitive':'🌱 Development';
+  document.getElementById('mg-body').innerHTML=`
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span class="val-item val-ok" style="border:none;padding:0;margin:0">${modeName}</span>
+        <span style="font-size:.74rem;color:var(--muted)">· Innings 1–${fromInning-1} locked · Adjusting ${fromInning}–${inn}</span>
+      </div>
+      <div class="mg-section-label" style="margin-bottom:6px">PITCHER PER INNING</div>
+      <div style="margin-bottom:10px">${rows.join('')}</div>
+      <div id="mg-pitch-summary" style="margin-bottom:10px;padding:8px;background:#f9fafb;border-radius:8px;font-size:.72rem"></div>
+      <div id="mg-warn" class="mg-warn-box" style="display:none"></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px">
+        <button class="btn btn-outline btn-sm" onclick="renderMgStep1(cur())">← Back</button>
+        <button class="btn btn-navy" id="mg-apply-btn" onclick="mgApply()">✓ Apply &amp; Re-fill</button>
+      </div>
+    </div>`;
+  mgUpdateCounts();
+}
+
+function mgUpdateCounts(){
+  const g=cur(); if(!g) return;
+  const inn=g.innings;
+  const fromInning=mgState.fromInning;
+  // Total pitch count: seeded from completed innings + current dropdown selections
+  const total={...mgState.seededPitchCount};
+  document.querySelectorAll('.mg-pitcher-sel').forEach(sel=>{
+    total[sel.value]=(total[sel.value]||0)+1;
+  });
+  // Per-inning badge
+  for(let i=fromInning;i<=inn;i++){
+    const sel=document.querySelector(`.mg-pitcher-sel[data-inning="${i}"]`);
+    const ct=document.getElementById(`mg-ct-${i}`);
+    if(!sel||!ct) continue;
+    const t=total[sel.value]||0;
+    ct.textContent=`${t}/${MAX_PITCH} inn`;
+    ct.className='mg-pitch-ct'+(t>MAX_PITCH?' over-limit':t===MAX_PITCH?' at-limit':'');
+  }
+  // Pitching summary bar
+  const sumEl=document.getElementById('mg-pitch-summary');
+  if(sumEl){
+    const parts=S.players
+      .filter(p=>(total[p.id]||0)>0)
+      .map(p=>{
+        const t=total[p.id];
+        const cls=t>MAX_PITCH?' over-limit':t===MAX_PITCH?' at-limit':'';
+        return `<span class="mg-pitch-ct${cls}" style="margin:2px 3px 2px 0">${p.name}: ${t}/${MAX_PITCH}</span>`;
+      }).join('');
+    sumEl.innerHTML=`<span style="color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:.65rem">Pitching totals &nbsp;</span>${parts}`;
+  }
+  // Validation
+  const over=S.players.filter(p=>(total[p.id]||0)>MAX_PITCH);
+  const warnEl=document.getElementById('mg-warn');
+  const applyBtn=document.getElementById('mg-apply-btn');
+  if(over.length){
+    if(warnEl){warnEl.style.display='block';warnEl.innerHTML=`⚠️ ${over.map(p=>`${p.name} would pitch ${total[p.id]} innings (max ${MAX_PITCH})`).join('; ')}`;}
+    if(applyBtn) applyBtn.disabled=true;
+  } else {
+    if(warnEl) warnEl.style.display='none';
+    if(applyBtn) applyBtn.disabled=false;
+  }
+}
+
+function mgApply(){
+  const g=cur(); if(!g) return;
+  const fromInning=mgState.fromInning;
+  const pitcherOverrides={};
+  document.querySelectorAll('.mg-pitcher-sel').forEach(sel=>{
+    pitcherOverrides[parseInt(sel.dataset.inning)]=sel.value;
+  });
+  doPartialReFill(g,fromInning,pitcherOverrides);
+  document.getElementById('mg-overlay').classList.remove('open');
+  const box=document.getElementById('autofill-result');
+  const modeName=mgState.mode==='competitive'?'💪 More Competitive':'🌱 Development';
+  if(box) box.innerHTML=`<div class="autofill-box"><strong>🎮 Mid-game adjustment applied!</strong> ${modeName} from inning ${fromInning}.<br>
+    <em style="font-size:.72rem">Innings 1–${fromInning-1} unchanged · Review innings ${fromInning}–${g.innings}.</em></div>`;
+}
+
+function doPartialReFill(game,fromInning,pitcherOverrides){
+  const inn=game.innings;
+  const defScore=id=>POS.reduce((s,pos)=>s+(SK_SCORE[pl(id).skills[pos]||'avoid']),0);
+
+  // Seed counts from completed innings (1..fromInning-1)
+  const pitchCount={},sitCount={};
+  S.players.forEach(p=>{pitchCount[p.id]=0;sitCount[p.id]=0;});
+  for(let i=1;i<fromInning;i++){
+    const pitcher=game.fieldingPlan[i]?.['P'];
+    if(pitcher) pitchCount[pitcher]++;
+    benchFor(game,i).forEach(pid=>sitCount[pid]++);
+  }
+
+  // Build pitchSched from overrides
+  const pitchSched={};
+  for(let i=fromInning;i<=inn;i++){
+    pitchSched[i]=pitcherOverrides[i];
+    if(pitcherOverrides[i]) pitchCount[pitcherOverrides[i]]++;
+  }
+
+  // Phase 2: bench rotation for remaining innings (seeded sitCount carries over)
+  const benchPlan={};
+  for(let i=fromInning;i<=inn;i++){
+    const avail=activePlayersForInning(game,i).map(p=>p.id);
+    const pitcher=pitchSched[i];
+    const benchNeeded=avail.length-9;
+    if(benchNeeded<=0){benchPlan[i]=[];continue;}
+    const nonPitchingAvailInn=id=>{
+      let cnt=0;
+      for(let j=i;j<=inn;j++) if(isAvailable(game,id,j)&&pitchSched[j]!==id) cnt++;
+      return cnt;
+    };
+    const candidates=[...avail]
+      .filter(id=>id!==pitcher)
+      .sort((a,b)=>{
+        if(sitCount[a]!==sitCount[b]) return sitCount[a]-sitCount[b];
+        const ra=nonPitchingAvailInn(a),rb=nonPitchingAvailInn(b);
+        if(ra!==rb) return ra-rb;
+        return defScore(a)-defScore(b);
+      });
+    benchPlan[i]=candidates.slice(0,benchNeeded);
+    benchPlan[i].forEach(id=>sitCount[id]++);
+  }
+
+  // Phase 3: position assignment for remaining innings
+  const posOrder=['C','SS','3B','1B','2B','LF','CF','RF'];
+  const INFIELD_NON_P=['C','1B','2B','SS','3B'];
+  for(let i=fromInning;i<=inn;i++){
+    POS.forEach(pos=>game.fieldingPlan[i][pos]=null);
+    const benched=new Set(benchPlan[i]||[]);
+    const fieldable=activePlayersForInning(game,i).map(p=>p.id).filter(id=>!benched.has(id));
+    const pitcher=pitchSched[i];
+    game.fieldingPlan[i]['P']=pitcher;
+    const assigned=new Set([pitcher]);
+    const infieldSoFar={};
+    S.players.forEach(p=>{
+      let cnt=0;
+      for(let j=1;j<i;j++){
+        const pos=Object.entries(game.fieldingPlan[j]||{}).find(([,pid])=>pid===p.id)?.[0];
+        if(pos&&INFIELD.has(pos)) cnt++;
+      }
+      infieldSoFar[p.id]=cnt;
+    });
+    if(i<=Math.min(5,inn)){
+      const lastChance=fieldable.filter(id=>{
+        if(assigned.has(id)||infieldSoFar[id]>0) return false;
+        let future=0;
+        for(let j=i+1;j<=Math.min(5,inn);j++)
+          if(isAvailable(game,id,j)&&!(benchPlan[j]||[]).includes(id)) future++;
+        return future===0;
+      });
+      lastChance.sort((a,b)=>{
+        const bA=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[pl(a)?.skills[p]||'avoid']));
+        const bB=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[pl(b)?.skills[p]||'avoid']));
+        return bB-bA;
+      });
+      lastChance.forEach(id=>{
+        if(assigned.has(id)) return;
+        const pos=INFIELD_NON_P
+          .filter(p=>!game.fieldingPlan[i][p])
+          .sort((a,b)=>SK_SCORE[pl(id)?.skills[b]||'avoid']-SK_SCORE[pl(id)?.skills[a]||'avoid'])[0];
+        if(pos){game.fieldingPlan[i][pos]=id;assigned.add(id);}
+      });
+    }
+    posOrder.forEach(pos=>{
+      if(game.fieldingPlan[i][pos]) return;
+      const avail=fieldable.filter(id=>!assigned.has(id));
+      if(!avail.length) return;
+      const best=avail.reduce((b,id)=>{
+        const sk=SK_SCORE[pl(id).skills[pos]||'avoid'];
+        const fbBonus=posFeedbackBonus(id,pos);
+        let score=sk*100+fbBonus*50;
+        if(pl(id).skills[pos]==='avoid') score-=180;
+        if(INFIELD.has(pos)&&infieldSoFar[id]<2) score+=45;
+        if(!INFIELD.has(pos)&&infieldSoFar[id]>=2) score+=15;
+        return score>b.score?{id,score}:b;
+      },{id:null,score:-9999});
+      if(best.id){game.fieldingPlan[i][pos]=best.id;assigned.add(best.id);}
+    });
+  }
+  save(); renderLineup(); renderVal();
+}
+
+/* ═══════════════════════════════════════════
    SUGGEST BATTING ORDER
 ═══════════════════════════════════════════ */
 function suggestBatOrder(){
@@ -1288,6 +1628,7 @@ function renderLineup(){
             <span style="background:var(--avoid-bg);color:var(--avoid);padding:2px 6px;border-radius:4px;font-weight:700">Avoid</span>
           </div>
           <button class="btn btn-purple btn-sm" onclick="autoFill()">✨ Auto-Fill</button>
+          <button class="btn btn-outline btn-sm" onclick="openMidGame()" title="Adjust plan from current inning forward">🎮 Mid-game</button>
           <button class="btn btn-outline btn-sm" onclick="clearAll()">Clear</button>
         </div>
       </div>
