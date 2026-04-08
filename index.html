@@ -730,7 +730,7 @@ function newGame(){
   const defaultOrder=['olivia','emily','georgia','gaura','emerson','yufei','alysha','dylan','aahana','harper','ela','soha'];
   const g={
     id:uid(), date:new Date().toISOString().slice(0,10),
-    opponent:'', homeAway:'home', innings:5,
+    opponent:'', homeAway:'home', innings:6,
     battingOrder:defaultOrder.filter(id=>S.players.find(p=>p.id===id)),
     playerInnings:{},           // per-inning availability (empty = all available)
     fieldingPlan:makeFieldingPlan()
@@ -808,10 +808,12 @@ function doAutoFill(g){
 
     if(benchNeeded<=0){ benchPlan[i]=[]; continue; }
 
-    // How many innings each player has remaining (from this inning onward)
-    const remainingInn = id => {
+    // How many NON-PITCHING innings each player has remaining (from this inning onward).
+    // Players scheduled to pitch later have fewer "benchable" slots — prioritize benching them now
+    // so they get their fair bench share before they're locked in on the mound.
+    const nonPitchingAvailInn = id => {
       let cnt=0;
-      for(let j=i;j<=inn;j++) if(isAvailable(g,id,j)) cnt++;
+      for(let j=i;j<=inn;j++) if(isAvailable(g,id,j) && pitchSched[j]!==id) cnt++;
       return cnt;
     };
 
@@ -819,8 +821,8 @@ function doAutoFill(g){
       .filter(id=>id!==pitcher)
       .sort((a,b)=>{
         if(sitCount[a]!==sitCount[b]) return sitCount[a]-sitCount[b];  // fewer benches first
-        const ra=remainingInn(a), rb=remainingInn(b);
-        if(ra!==rb) return ra-rb; // fewer innings left = bench them first (ensures limited-availability players get benched)
+        const ra=nonPitchingAvailInn(a), rb=nonPitchingAvailInn(b);
+        if(ra!==rb) return ra-rb; // fewer non-pitching innings left = bench them first
         return defScore(a)-defScore(b); // weakest defense bench first
       });
 
@@ -875,6 +877,7 @@ function doAutoFill(g){
     }
 
     posOrder.forEach(pos=>{
+      if(g.fieldingPlan[i][pos]) return; // already filled by pre-pass or pitcher — don't overwrite
       const avail=fieldable.filter(id=>!assigned.has(id));
       if(!avail.length) return;
       const best=avail.reduce((b,id)=>{
