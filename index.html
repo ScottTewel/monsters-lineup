@@ -78,6 +78,7 @@ nav button.active{color:var(--navy);background:var(--gold);border-color:var(--go
 .av-all-btn{font-size:.6rem;padding:2px 5px;border-radius:5px;border:1px solid var(--border);background:white;cursor:pointer;color:var(--muted);white-space:nowrap}
 .av-all-btn:hover{border-color:var(--navy);color:var(--navy)}
 .av-legend{font-size:.62rem;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.callup-badge{font-size:.55rem;font-weight:700;background:#ede9fe;color:#5b21b6;padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;text-transform:uppercase;letter-spacing:.04em}
 .av-dot-yes{display:inline-block;width:8px;height:8px;border-radius:2px;background:#dcfce7;border:1px solid #86efac}
 .av-dot-no{display:inline-block;width:8px;height:8px;border-radius:2px;background:#f3f4f6;border:1px solid #d1d5db}
 
@@ -466,6 +467,18 @@ table.ig tr:last-child td:last-child{border-radius:0 0 var(--radius) 0}
   </div>
 </div>
 
+<!-- CALL-UP PLAYER MODAL -->
+<div class="overlay" id="callup-overlay" onclick="closeCallup(event)">
+  <div class="modal" style="width:460px">
+    <div class="modal-hd"><h3>+ Add Call-up Player</h3><button class="modal-x" onclick="closeCallup()">×</button></div>
+    <div id="callup-body"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+      <button class="btn btn-outline btn-sm" onclick="closeCallup()">Cancel</button>
+      <button class="btn btn-gold btn-sm" onclick="saveCallup()">Add to Game</button>
+    </div>
+  </div>
+</div>
+
 <!-- SKILL EDITOR MODAL -->
 <div class="overlay" id="sk-overlay" onclick="closeSk(event)">
   <div class="modal">
@@ -601,6 +614,9 @@ const pl      = id => S.players.find(p=>p.id===id);
 const cur     = ()  => S.games.find(g=>g.id===S.curGameId);
 const uid     = ()  => 'g'+Date.now();
 const fmtDate = d   => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+// Game-scoped helpers — include call-up players for a specific game
+const gamePlayers = g => [...S.players, ...(g?.playInPlayers||[])];
+const plAny = (id, g) => S.players.find(p=>p.id===id) || (g?.playInPlayers||[]).find(p=>p.id===id);
 
 /* ── Per-inning availability ──
    game.playerInnings = { playerId: [1,2,3,4,5] }  ← innings they ARE available
@@ -635,12 +651,12 @@ function isPartialGame(game, pid) {
 }
 
 function activePlayersForInning(game, inning) {
-  return S.players.filter(p => isAvailable(game, p.id, inning));
+  return gamePlayers(game).filter(p => isAvailable(game, p.id, inning));
 }
 
 function activePlayers(game) {
   // Players present for at least one inning
-  return S.players.filter(p => !isFullyAbsent(game, p.id));
+  return gamePlayers(game).filter(p => !isFullyAbsent(game, p.id));
 }
 
 function benchFor(game, inning) {
@@ -762,7 +778,8 @@ function newGame(){
     opponent:'', homeAway:'home', innings:6,
     battingOrder:defaultOrder.filter(id=>S.players.find(p=>p.id===id)),
     playerInnings:{},           // per-inning availability (empty = all available)
-    fieldingPlan:makeFieldingPlan()
+    fieldingPlan:makeFieldingPlan(),
+    playInPlayers:[]            // temporary call-up players for this game only
   };
   S.games.unshift(g); S.curGameId=g.id; save(); renderAll();
 }
@@ -802,7 +819,7 @@ function autoFill(){
 
 function doAutoFill(g){
   const inn    = g.innings;
-  const defScore = id => POS.reduce((s,pos)=>s+(SK_SCORE[pl(id).skills[pos]||'avoid']),0);
+  const defScore = id => POS.reduce((s,pos)=>s+(SK_SCORE[plAny(id,g)?.skills[pos]||'avoid']),0);
 
   // Phase 1: pitching rotation
   // For each inning, pick the next available pitcher who hasn't hit their max.
@@ -818,7 +835,7 @@ function doAutoFill(g){
       }
     }
     if(!assigned){
-      const fb=avail.find(id=>['ideal','good','ok'].includes(pl(id)?.skills?.P))||avail[0];
+      const fb=avail.find(id=>['ideal','good','ok'].includes(plAny(id,g)?.skills?.P))||avail[0];
       pitchSched[i]=fb;
     }
   }
@@ -827,7 +844,7 @@ function doAutoFill(g){
   // Track bench count per player across innings they're available.
   // Priority: fewest benches → most remaining available innings → weakest defense.
   const sitCount={};
-  S.players.forEach(p=>sitCount[p.id]=0);
+  gamePlayers(g).forEach(p=>sitCount[p.id]=0);
   const benchPlan={};
 
   for(let i=1;i<=inn;i++){
@@ -872,7 +889,7 @@ function doAutoFill(g){
     // Per-player infield count so far
     const infieldSoFar={};
 
-    S.players.forEach(p=>{
+    gamePlayers(g).forEach(p=>{
       let cnt=0;
       for(let j=1;j<i;j++){
         const pos=Object.entries(g.fieldingPlan[j]||{}).find(([,pid])=>pid===p.id)?.[0];
@@ -892,15 +909,15 @@ function doAutoFill(g){
         return future===0;
       });
       lastChance.sort((a,b)=>{
-        const bA=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[pl(a)?.skills[p]||'avoid']));
-        const bB=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[pl(b)?.skills[p]||'avoid']));
+        const bA=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[plAny(a,g)?.skills[p]||'avoid']));
+        const bB=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[plAny(b,g)?.skills[p]||'avoid']));
         return bB-bA;
       });
       lastChance.forEach(id=>{
         if(assigned.has(id)) return;
         const pos=INFIELD_NON_P
           .filter(p=>!g.fieldingPlan[i][p])
-          .sort((a,b)=>SK_SCORE[pl(id)?.skills[b]||'avoid']-SK_SCORE[pl(id)?.skills[a]||'avoid'])[0];
+          .sort((a,b)=>SK_SCORE[plAny(id,g)?.skills[b]||'avoid']-SK_SCORE[plAny(id,g)?.skills[a]||'avoid'])[0];
         if(pos){g.fieldingPlan[i][pos]=id;assigned.add(id);}
       });
     }
@@ -910,10 +927,10 @@ function doAutoFill(g){
       const avail=fieldable.filter(id=>!assigned.has(id));
       if(!avail.length) return;
       const best=avail.reduce((b,id)=>{
-        const sk=SK_SCORE[pl(id).skills[pos]||'avoid'];
+        const sk=SK_SCORE[plAny(id,g)?.skills[pos]||'avoid'];
         const fbBonus=posFeedbackBonus(id,pos); // ±0.5 based on observations
         let score=sk*100+fbBonus*50;
-        if(pl(id).skills[pos]==='avoid') score-=180;
+        if(plAny(id,g)?.skills[pos]==='avoid') score-=180;
         if(INFIELD.has(pos) && infieldSoFar[id]<2) score+=45;
         if(!INFIELD.has(pos) && infieldSoFar[id]>=2) score+=15;
         return score>b.score?{id,score}:b;
@@ -922,8 +939,8 @@ function doAutoFill(g){
     });
   }
 
-  const pitchLines=PITCH_PRI.filter(id=>pitchCount[id]>0).map(id=>`${pl(id)?.name||id} (${pitchCount[id]} inn)`).join(', ');
-  const sitLines=S.players.filter(p=>sitCount[p.id]>0).map(p=>`${p.name}×${sitCount[p.id]}`).join(', ');
+  const pitchLines=PITCH_PRI.filter(id=>pitchCount[id]>0).map(id=>`${plAny(id,g)?.name||id} (${pitchCount[id]} inn)`).join(', ');
+  const sitLines=gamePlayers(g).filter(p=>sitCount[p.id]>0).map(p=>`${p.name}×${sitCount[p.id]}`).join(', ');
 
   save(); renderLineup(); renderVal();
   const box=document.getElementById('autofill-result');
@@ -1006,7 +1023,7 @@ function mgStep1Next(){
   const fromInning=mgState.completedInning+1;
   // Seed pitch counts from completed innings
   const seededPitchCount={};
-  S.players.forEach(p=>seededPitchCount[p.id]=0);
+  gamePlayers(g).forEach(p=>seededPitchCount[p.id]=0);
   for(let i=1;i<fromInning;i++){
     const pitcher=g.fieldingPlan[i]?.['P'];
     if(pitcher) seededPitchCount[pitcher]++;
@@ -1022,7 +1039,7 @@ function buildPitcherRecs(game,fromInning,mode,seededPitchCount){
   const inn=game.innings;
   const workCount={...seededPitchCount};
   const recs={};
-  const canPitch=S.players.filter(p=>p.skills['P']!=='avoid');
+  const canPitch=gamePlayers(game).filter(p=>p.skills['P']!=='avoid');
   let ordered;
   if(mode==='competitive'){
     ordered=[...canPitch].sort((a,b)=>SK_SCORE[b.skills['P']||'avoid']-SK_SCORE[a.skills['P']||'avoid']);
@@ -1050,7 +1067,7 @@ function buildPitcherRecs(game,fromInning,mode,seededPitchCount){
 
 function renderMgStep2(game,fromInning,recs,seededPitchCount){
   const inn=game.innings;
-  const canPitch=S.players.filter(p=>p.skills['P']!=='avoid');
+  const canPitch=gamePlayers(game).filter(p=>p.skills['P']!=='avoid');
   const rows=[];
   for(let i=fromInning;i<=inn;i++){
     const avail=activePlayersForInning(game,i).map(p=>p.id);
@@ -1104,7 +1121,8 @@ function mgUpdateCounts(){
   // Pitching summary bar
   const sumEl=document.getElementById('mg-pitch-summary');
   if(sumEl){
-    const parts=S.players
+    const g2=cur();
+    const parts=gamePlayers(g2)
       .filter(p=>(total[p.id]||0)>0)
       .map(p=>{
         const t=total[p.id];
@@ -1114,7 +1132,7 @@ function mgUpdateCounts(){
     sumEl.innerHTML=`<span style="color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:.65rem">Pitching totals &nbsp;</span>${parts}`;
   }
   // Validation
-  const over=S.players.filter(p=>(total[p.id]||0)>MAX_PITCH);
+  const over=gamePlayers(cur()).filter(p=>(total[p.id]||0)>MAX_PITCH);
   const warnEl=document.getElementById('mg-warn');
   const applyBtn=document.getElementById('mg-apply-btn');
   if(over.length){
@@ -1143,11 +1161,11 @@ function mgApply(){
 
 function doPartialReFill(game,fromInning,pitcherOverrides){
   const inn=game.innings;
-  const defScore=id=>POS.reduce((s,pos)=>s+(SK_SCORE[pl(id).skills[pos]||'avoid']),0);
+  const defScore=id=>POS.reduce((s,pos)=>s+(SK_SCORE[plAny(id,game)?.skills[pos]||'avoid']),0);
 
   // Seed counts from completed innings (1..fromInning-1)
   const pitchCount={},sitCount={};
-  S.players.forEach(p=>{pitchCount[p.id]=0;sitCount[p.id]=0;});
+  gamePlayers(game).forEach(p=>{pitchCount[p.id]=0;sitCount[p.id]=0;});
   for(let i=1;i<fromInning;i++){
     const pitcher=game.fieldingPlan[i]?.['P'];
     if(pitcher) pitchCount[pitcher]++;
@@ -1196,7 +1214,7 @@ function doPartialReFill(game,fromInning,pitcherOverrides){
     game.fieldingPlan[i]['P']=pitcher;
     const assigned=new Set([pitcher]);
     const infieldSoFar={};
-    S.players.forEach(p=>{
+    gamePlayers(game).forEach(p=>{
       let cnt=0;
       for(let j=1;j<i;j++){
         const pos=Object.entries(game.fieldingPlan[j]||{}).find(([,pid])=>pid===p.id)?.[0];
@@ -1213,15 +1231,15 @@ function doPartialReFill(game,fromInning,pitcherOverrides){
         return future===0;
       });
       lastChance.sort((a,b)=>{
-        const bA=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[pl(a)?.skills[p]||'avoid']));
-        const bB=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[pl(b)?.skills[p]||'avoid']));
+        const bA=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[plAny(a,game)?.skills[p]||'avoid']));
+        const bB=Math.max(...INFIELD_NON_P.map(p=>SK_SCORE[plAny(b,game)?.skills[p]||'avoid']));
         return bB-bA;
       });
       lastChance.forEach(id=>{
         if(assigned.has(id)) return;
         const pos=INFIELD_NON_P
           .filter(p=>!game.fieldingPlan[i][p])
-          .sort((a,b)=>SK_SCORE[pl(id)?.skills[b]||'avoid']-SK_SCORE[pl(id)?.skills[a]||'avoid'])[0];
+          .sort((a,b)=>SK_SCORE[plAny(id,game)?.skills[b]||'avoid']-SK_SCORE[plAny(id,game)?.skills[a]||'avoid'])[0];
         if(pos){game.fieldingPlan[i][pos]=id;assigned.add(id);}
       });
     }
@@ -1230,10 +1248,10 @@ function doPartialReFill(game,fromInning,pitcherOverrides){
       const avail=fieldable.filter(id=>!assigned.has(id));
       if(!avail.length) return;
       const best=avail.reduce((b,id)=>{
-        const sk=SK_SCORE[pl(id).skills[pos]||'avoid'];
+        const sk=SK_SCORE[plAny(id,game)?.skills[pos]||'avoid'];
         const fbBonus=posFeedbackBonus(id,pos);
         let score=sk*100+fbBonus*50;
-        if(pl(id).skills[pos]==='avoid') score-=180;
+        if(plAny(id,game)?.skills[pos]==='avoid') score-=180;
         if(INFIELD.has(pos)&&infieldSoFar[id]<2) score+=45;
         if(!INFIELD.has(pos)&&infieldSoFar[id]>=2) score+=15;
         return score>b.score?{id,score}:b;
@@ -1249,7 +1267,7 @@ function doPartialReFill(game,fromInning,pitcherOverrides){
 ═══════════════════════════════════════════ */
 function suggestBatOrder(){
   const g=cur(); if(!g) return;
-  const hasData=S.players.some(p=>battingScore(p.id)!==null);
+  const hasData=gamePlayers(g).some(p=>battingScore(p.id)!==null);
   const msg=hasData
     ? 'Sort batting order using observation data + manual ranks?\n(Drag to adjust after.)'
     : 'No observations logged yet — sorting by manual hitting rank.\nLog observations in the Feedback tab for data-driven suggestions.';
@@ -1261,7 +1279,7 @@ function suggestBatOrder(){
     if(sa===null&&sb!==null) return 1;
     return (a.hittingRank||99)-(b.hittingRank||99); // fallback to manual rank
   });
-  const absent=S.players.filter(p=>isFullyAbsent(g,p.id));
+  const absent=gamePlayers(g).filter(p=>isFullyAbsent(g,p.id));
   g.battingOrder=[...active,...absent].map(p=>p.id);
   save(); renderBatOrder(g);
 }
@@ -1273,8 +1291,9 @@ function validate(game){
   if(!game) return [];
   const res=[];
   const inn=game.innings;
+  const gp=gamePlayers(game);
   const stats={};
-  S.players.forEach(p=>{stats[p.id]={pitch:0,bench:0,field:0,infield:0,avoidV:[]};});
+  gp.forEach(p=>{stats[p.id]={pitch:0,bench:0,field:0,infield:0,avoidV:[]};});
   let anyFilled=false;
 
   for(let i=1;i<=inn;i++){
@@ -1284,17 +1303,19 @@ function validate(game){
     POS.forEach(pos=>{
       const pid=plan[pos]; if(!pid) return;
       anyFilled=true;
+      const pobj=plAny(pid,game);
       if(!isAvailable(game,pid,i))
-        res.push({t:'err',msg:`Inning ${i}: ${pl(pid)?.name||pid} is not available this inning but is assigned to ${pos}! Remove them.`});
+        res.push({t:'err',msg:`Inning ${i}: ${pobj?.name||pid} is not available this inning but is assigned to ${pos}! Remove them.`});
       if(seen.has(pid))
-        res.push({t:'err',msg:`Inning ${i}: ${pl(pid)?.name||pid} assigned to multiple positions!`});
+        res.push({t:'err',msg:`Inning ${i}: ${pobj?.name||pid} assigned to multiple positions!`});
       seen.add(pid);
+      if(!stats[pid]) stats[pid]={pitch:0,bench:0,field:0,infield:0,avoidV:[]};
       stats[pid].field++;
       if(pos==='P') stats[pid].pitch++;
       if(INFIELD.has(pos)) stats[pid].infield++;
-      if(pl(pid)?.skills[pos]==='avoid') stats[pid].avoidV.push(`I${i}/${pos}`);
+      if(pobj?.skills[pos]==='avoid') stats[pid].avoidV.push(`I${i}/${pos}`);
     });
-    bench.forEach(pid=>stats[pid].bench++);
+    bench.forEach(pid=>{if(!stats[pid]) stats[pid]={pitch:0,bench:0,field:0,infield:0,avoidV:[]};stats[pid].bench++;});
   }
 
   if(!anyFilled){
@@ -1304,19 +1325,19 @@ function validate(game){
 
   // Rule 1: pitcher max 3 innings
   let pitchOk=true;
-  S.players.forEach(p=>{
+  gp.forEach(p=>{
     if(stats[p.id].pitch>MAX_PITCH){
       res.push({t:'err',msg:`${p.name} pitched ${stats[p.id].pitch} innings — max is ${MAX_PITCH}!`});
       pitchOk=false;
     }
   });
-  const pitching=S.players.filter(p=>stats[p.id].pitch>0);
+  const pitching=gp.filter(p=>stats[p.id].pitch>0);
   if(pitchOk&&pitching.length)
     res.push({t:'ok',msg:`Pitching OK: ${pitching.map(p=>`${p.name} ${stats[p.id].pitch}/${MAX_PITCH}`).join(' · ')}`});
 
   // Rule 2: bench equity — sit once before anyone sits twice
   // Only among players available for ≥2 innings (can't bench a player who's only there 1 inning)
-  const eligible=S.players.filter(p=>availableInningsList(game,p.id).length>=2);
+  const eligible=gp.filter(p=>availableInningsList(game,p.id).length>=2);
   const noBench=eligible.filter(p=>stats[p.id].bench===0).map(p=>p.name);
   const twoBench=eligible.filter(p=>stats[p.id].bench>=2).map(p=>p.name);
   if(twoBench.length&&noBench.length)
@@ -1328,7 +1349,7 @@ function validate(game){
 
   // Rule 3: ≥1 consecutive infield inning within first 5
   const noInfield5=[];
-  S.players.forEach(p=>{
+  gp.forEach(p=>{
     if(!availableInningsList(game,p.id).length) return;
     let consec=0, maxC=0, appeared=false;
     for(let i=1;i<=Math.min(5,inn);i++){
@@ -1346,14 +1367,14 @@ function validate(game){
     res.push({t:'ok',msg:'All players have ≥1 infield inning within first 5. ✓'});
 
   // Guideline (not a hard rule): rules say players "should" average ≥2 infield innings
-  const lowInfield=S.players.filter(p=>stats[p.id].field>0&&stats[p.id].infield<2);
+  const lowInfield=gp.filter(p=>stats[p.id].field>0&&stats[p.id].infield<2);
   if(lowInfield.length)
     res.push({t:'warn',msg:`Guideline: players should average ≥2 infield innings — ${lowInfield.map(p=>`${p.name} (${stats[p.id].infield} so far)`).join(', ')}`});
-  else if(S.players.some(p=>stats[p.id].field>0))
+  else if(gp.some(p=>stats[p.id].field>0))
     res.push({t:'ok',msg:'≥2 infield innings guideline met for all players. ✓'});
 
   // Avoid violations
-  const avoids=S.players.filter(p=>stats[p.id].avoidV.length).map(p=>`${p.name}: ${stats[p.id].avoidV.join(',')}`);
+  const avoids=gp.filter(p=>stats[p.id].avoidV.length).map(p=>`${p.name}: ${stats[p.id].avoidV.join(',')}`);
   if(avoids.length) res.push({t:'warn',msg:`"Avoid" positions used: ${avoids.join(' | ')}`});
 
   // Completeness
@@ -1388,8 +1409,8 @@ function renderGameList(){
   const el=document.getElementById('game-list');
   if(!S.games.length){el.innerHTML='<p style="font-size:.78rem;color:var(--muted);padding:2px">No games yet.</p>';return;}
   el.innerHTML=S.games.map(g=>{
-    const partial=S.players.filter(p=>isPartialGame(g,p.id)).length;
-    const absent=S.players.filter(p=>isFullyAbsent(g,p.id)).length;
+    const partial=gamePlayers(g).filter(p=>isPartialGame(g,p.id)).length;
+    const absent=gamePlayers(g).filter(p=>isFullyAbsent(g,p.id)).length;
     let note='';
     if(absent) note+=` · ${absent} absent`;
     if(partial) note+=` · ${partial} partial`;
@@ -1470,7 +1491,31 @@ function renderAvailGrid(g){
     </tr>`;
   });
 
-  html+=`</tbody></table>`;
+  // Call-up players
+  (g.playInPlayers||[]).forEach(p=>{
+    const avail=innNums.map(i=>isAvailable(g,p.id,i));
+    const allAvail=avail.every(Boolean);
+    const noneAvail=avail.every(v=>!v);
+    html+=`<tr>
+      <td class="av-name-cell${noneAvail?' fully-out':''}" title="${p.name} (call-up)">${p.name}<span class="callup-badge">call-up</span></td>
+      ${innNums.map((i,idx)=>`
+        <td><button class="av-btn ${avail[idx]?'av-yes':'av-no'}"
+          onclick="toggleInningAvail('${p.id}',${i})"
+          title="${avail[idx]?'Available inning '+i+' (click to mark out)':'Out inning '+i+' (click to mark available)'}"
+        >${i}</button></td>`).join('')}
+      <td style="padding-left:3px;display:flex;gap:2px">
+        <button class="av-all-btn" onclick="${allAvail?`setAllInnings('${p.id}',false)`:`setAllInnings('${p.id}',true)`}"
+          title="${allAvail?'Mark fully absent':'Set all innings available'}"
+        >${allAvail?'Out':'All'}</button>
+        <button class="av-all-btn" style="color:#dc2626;border-color:#fca5a5" onclick="removeCallup('${p.id}')" title="Remove call-up player">✕</button>
+      </td>
+    </tr>`;
+  });
+
+  html+=`</tbody></table>
+  <div style="margin-top:8px">
+    <button class="btn btn-purple btn-sm" onclick="openAddCallup()">+ Add call-up player</button>
+  </div>`;
   document.getElementById('av-grid').innerHTML=html;
 }
 
@@ -1501,8 +1546,10 @@ function buildRecommendations(g){
     return cnt;
   };
 
+  const gp=gamePlayers(g);
+
   // A — Infield minimum violations (hard rule): 0 infield innings in first 5
-  S.players.forEach(p=>{
+  gp.forEach(p=>{
     if(isFullyAbsent(g,p.id)) return;
     const maxIF=Math.min(5,inn);
     let ifCount=0;
@@ -1524,7 +1571,7 @@ function buildRecommendations(g){
   });
 
   // B — Bench equity violations (hard rule): someone has 0 sits while another has 2+
-  const sits=S.players.map(p=>({p,n:sitCt(p.id)}));
+  const sits=gp.map(p=>({p,n:sitCt(p.id)}));
   const zeroBench=sits.filter(x=>x.n===0&&!isFullyAbsent(g,x.p.id));
   const overBench=sits.filter(x=>x.n>=2);
   zeroBench.forEach(({p:unbenched})=>{
@@ -1547,7 +1594,7 @@ function buildRecommendations(g){
   });
 
   // C — Infield guideline shortfall (soft): < 2 infield innings average
-  S.players.forEach(p=>{
+  gp.forEach(p=>{
     if(isFullyAbsent(g,p.id)) return;
     const ifCt=infieldInns(p.id);
     if(ifCt>=2) return;
@@ -1590,8 +1637,8 @@ function renderLineup(){
   }
   const opp=g.opponent||'TBD';
   const dateS=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'';
-  const absent=S.players.filter(p=>isFullyAbsent(g,p.id)).map(p=>p.name);
-  const partial=S.players.filter(p=>isPartialGame(g,p.id));
+  const absent=gamePlayers(g).filter(p=>isFullyAbsent(g,p.id)).map(p=>p.name);
+  const partial=gamePlayers(g).filter(p=>isPartialGame(g,p.id));
 
   let statusLine=`${dateS}${dateS?' · ':''}${g.homeAway==='home'?'🏠 Home':'✈️ Away'} · ${g.innings} innings`;
   if(absent.length) statusLine+=` · <span style="color:#dc2626">⛔ Absent: ${absent.join(', ')}</span>`;
@@ -1645,7 +1692,7 @@ function renderLineup(){
 }
 
 function buildPitchChips(g){
-  return S.players.filter(p=>{
+  return gamePlayers(g).filter(p=>{
     let c=0;for(let i=1;i<=g.innings;i++) if(g.fieldingPlan[i]?.P===p.id) c++;
     return c>0;
   }).map(p=>{
@@ -1664,11 +1711,11 @@ function buildGrid(g){
     const plan=g.fieldingPlan[i]||{};
     const bench=benchFor(g,i);
     // Players not available this inning (track for display)
-    const unavailThisInn=S.players.filter(p=>!isAvailable(g,p.id,i)).map(p=>p.id);
+    const unavailThisInn=gamePlayers(g).filter(p=>!isAvailable(g,p.id,i)).map(p=>p.id);
 
     // Prior bench count per player (for warning color)
     const priorBench={};
-    S.players.forEach(p=>{
+    gamePlayers(g).forEach(p=>{
       let cnt=0;
       for(let j=1;j<i;j++) if(benchFor(g,j).includes(p.id)) cnt++;
       priorBench[p.id]=cnt;
@@ -1677,7 +1724,7 @@ function buildGrid(g){
     h+=`<tr><td class="inn-lbl">${i}</td>`;
     POS.forEach(pos=>{
       const pid=plan[pos];
-      const player=pid?pl(pid):null;
+      const player=pid?plAny(pid,g):null;
       const unavailWarning=pid&&!isAvailable(g,pid,i);
       const skill=player&&!unavailWarning?player.skills[pos]:null;
       const skCls=unavailWarning?'pc-unavail':skill?`sk-${skill}`:'empty';
@@ -1694,13 +1741,13 @@ function buildGrid(g){
     // Bench column: show bench players + unavailable players
     h+=`<td class="bench-td"><div style="display:flex;flex-wrap:wrap">`;
     bench.forEach(pid=>{
-      const p=pl(pid);
+      const p=plAny(pid,g);
       const prior=priorBench[pid]||0;
       const cls=prior>=2?'bench-pill bp-err':prior>=1?'bench-pill bp-warn':'bench-pill';
       h+=`<span class="${cls}" title="${prior?prior+'x benched already':''}">${p?.name||pid}</span>`;
     });
     unavailThisInn.forEach(pid=>{
-      const p=pl(pid);
+      const p=plAny(pid,g);
       const inns=availableInningsList(g,pid);
       const tip=inns.length?`Available inn: ${inns.join(',')}`:'Absent all game';
       h+=`<span class="bench-pill bp-gone" title="${tip}">🚫 ${p?.name||pid}</span>`;
@@ -1712,7 +1759,7 @@ function buildGrid(g){
 }
 
 function buildPTSummary(g){
-  return S.players.map(p=>{
+  return gamePlayers(g).map(p=>{
     const availInns=availableInningsList(g,p.id);
     if(!availInns.length) return `<div class="pt-row" style="opacity:.35"><div class="pt-name">${p.name}</div><div class="pt-detail">⛔ Absent</div></div>`;
     if(availInns.length<g.innings){
@@ -1764,7 +1811,7 @@ function renderBatOrder(g){
   el.innerHTML='';
   let activeIdx=1;
   g.battingOrder.forEach((pid,idx)=>{
-    const p=pl(pid); if(!p) return;
+    const p=plAny(pid,g); if(!p) return;
     const fullyOut=isFullyAbsent(g,pid);
     const partial=isPartialGame(g,pid);
     const inns=partial?availableInningsList(g,pid):[];
@@ -1837,17 +1884,17 @@ function openPicker(inning,pos){
   const bySkill={};
   SKILLS.forEach(s=>bySkill[s]=[]);
   // Only show players available this inning
-  S.players.filter(p=>isAvailable(g,p.id,inning)).forEach(p=>bySkill[p.skills[pos]||'avoid'].push(p));
+  gamePlayers(g).filter(p=>isAvailable(g,p.id,inning)).forEach(p=>bySkill[p.skills[pos]||'avoid'].push(p));
 
   const benchCount={};
-  S.players.forEach(p=>{
+  gamePlayers(g).forEach(p=>{
     let c=0;for(let i=1;i<=g.innings;i++) if(benchFor(g,i).includes(p.id)) c++;
     benchCount[p.id]=c;
   });
 
   let html='';
   // Flag if any players are unavailable this inning (to explain their absence from list)
-  const unavailCount=S.players.filter(p=>!isAvailable(g,p.id,inning)).length;
+  const unavailCount=gamePlayers(g).filter(p=>!isAvailable(g,p.id,inning)).length;
   if(unavailCount) html+=`<p style="font-size:.72rem;color:#d97706;margin-bottom:8px;padding:6px 8px;background:#fff8f0;border-radius:6px">
     ⏱ ${unavailCount} player${unavailCount>1?'s are':' is'} unavailable inning ${inning} and not shown.</p>`;
 
@@ -1879,14 +1926,14 @@ function selectFromPicker(pid){
   if(!pickerCtx) return;
   const{inning,pos}=pickerCtx, g=cur(); if(!g) return;
   if(!isAvailable(g,pid,inning)){
-    alert(`${pl(pid)?.name||pid} is not available in Inning ${inning}.`);
+    alert(`${plAny(pid,g)?.name||pid} is not available in Inning ${inning}.`);
     return;
   }
   const plan=g.fieldingPlan[inning]||{};
   const conflict=Object.entries(plan).find(([p,id])=>p!==pos&&id===pid);
   if(conflict){
     const[otherPos]=conflict;
-    if(!confirm(`${pl(pid).name} is already at ${otherPos} in Inning ${inning}. Move them to ${pos}?`)) return;
+    if(!confirm(`${plAny(pid,g).name} is already at ${otherPos} in Inning ${inning}. Move them to ${pos}?`)) return;
     g.fieldingPlan[inning][otherPos]=null;
   }
   g.fieldingPlan[inning][pos]=pid;
@@ -1904,6 +1951,82 @@ function closePicker(e){
   if(e&&e.target!==document.getElementById('picker-overlay')) return;
   document.getElementById('picker-overlay').classList.remove('open');
   pickerCtx=null;
+}
+
+/* ═══════════════════════════════════════════
+   CALL-UP PLAYERS
+═══════════════════════════════════════════ */
+function openAddCallup(){
+  const g=cur(); if(!g) return;
+  // Build skill rows same as openSk
+  let skillRows='';
+  POS.forEach(pos=>{
+    skillRows+=`<div class="sk-row"><span class="sk-row-lbl">${POS_LABEL[pos]}</span>
+      <div class="sk-opts">${SKILLS.map(s=>`<button class="sk-opt-btn ${s}${s==='ok'?' sel':''}" data-pos="${pos}" data-skill="${s}" onclick="callupToggleSkill(this)">${s}</button>`).join('')}</div>
+    </div>`;
+  });
+  document.getElementById('callup-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div class="fg" style="margin:0"><label>Name</label>
+        <input type="text" id="callup-name" placeholder="First Last" style="width:100%">
+      </div>
+      <div class="fg" style="margin:0"><label>Jersey #</label>
+        <input type="text" id="callup-num" placeholder="00" style="width:100%">
+      </div>
+    </div>
+    <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px">Position Skills</div>
+    ${skillRows}
+    <div id="callup-err" style="display:none;color:#dc2626;font-size:.78rem;margin-top:8px"></div>`;
+  document.getElementById('callup-overlay').classList.add('open');
+}
+
+function callupToggleSkill(btn){
+  btn.closest('.sk-opts').querySelectorAll('.sk-opt-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+function saveCallup(){
+  const g=cur(); if(!g) return;
+  const name=document.getElementById('callup-name').value.trim();
+  const num=document.getElementById('callup-num').value.trim();
+  const errEl=document.getElementById('callup-err');
+  if(!name){errEl.textContent='Name is required.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+
+  // Collect skills from selected buttons
+  const skills={};
+  document.querySelectorAll('#callup-body .sk-opt-btn.sel').forEach(btn=>{
+    skills[btn.dataset.pos]=btn.dataset.skill;
+  });
+  POS.forEach(pos=>{ if(!skills[pos]) skills[pos]='ok'; });
+
+  const id='pi_'+Date.now();
+  if(!g.playInPlayers) g.playInPlayers=[];
+  g.playInPlayers.push({id, name, num:num||'', hittingRank:99, skills, notes:'Call-up player', isCallup:true});
+  // Append to batting order
+  g.battingOrder.push(id);
+
+  closeCallup();
+  save(); renderGameForm(); renderLineup(); renderVal();
+}
+
+function removeCallup(pid){
+  const g=cur(); if(!g) return;
+  if(!confirm('Remove this call-up player from the game?')) return;
+  g.playInPlayers=(g.playInPlayers||[]).filter(p=>p.id!==pid);
+  g.battingOrder=g.battingOrder.filter(id=>id!==pid);
+  // Clear from fielding plan
+  for(let i=1;i<=g.innings;i++){
+    const plan=g.fieldingPlan[i]||{};
+    POS.forEach(pos=>{if(plan[pos]===pid) plan[pos]=null;});
+  }
+  if(g.playerInnings) delete g.playerInnings[pid];
+  save(); renderGameForm(); renderLineup(); renderVal();
+}
+
+function closeCallup(e){
+  if(e&&e.target!==document.getElementById('callup-overlay')) return;
+  document.getElementById('callup-overlay').classList.remove('open');
 }
 
 /* ═══════════════════════════════════════════
@@ -2150,7 +2273,7 @@ function exportGameCard(){
   const C=(v,s,n)=>({v:v==null?'':v,s:s||0,n:!!n});
   const B=(s)=>C('',s);
   const active=g.battingOrder.filter(id=>!isFullyAbsent(g,id));
-  const absent=S.players.filter(p=>isFullyAbsent(g,p.id)&&g.battingOrder.includes(p.id));
+  const absent=gamePlayers(g).filter(p=>isFullyAbsent(g,p.id)&&g.battingOrder.includes(p.id));
   const NC=2+g.innings;
 
   // ── SHEET 1: Coaches — fielding plan (player rows × inning columns) ──
@@ -2166,7 +2289,7 @@ function exportGameCard(){
   for(let i=1;i<=g.innings;i++) hdr1.push(C(`Inn ${i}`,CH));
   R1(...hdr1);
   active.forEach((id,idx)=>{
-    const p=pl(id),alt=idx%2===0;
+    const p=plAny(id,g),alt=idx%2===0;
     const nameStr=p?(p.num?`#${p.num} ${p.name}`:p.name):id;
     const cells=[C(idx+1,alt?NW:NA,true),C(nameStr,alt?BBW:BBA)];
     for(let i=1;i<=g.innings;i++){
@@ -2195,7 +2318,7 @@ function exportGameCard(){
   r=R2(C('BATTING ORDER',SEC),...Array(NC-1).fill(B(SEC))); M2(r,0,r,NC-1);
   R2(C('#',CH),C('Player',CH),C('Starting Position',CH));
   active.forEach((id,idx)=>{
-    const p=pl(id),alt=idx%2===0;
+    const p=plAny(id,g),alt=idx%2===0;
     const nameStr=p?(p.num?`#${p.num} ${p.name}`:p.name):id;
     const plan1=g.fieldingPlan[1]||{};
     let startPos=null;
